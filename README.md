@@ -191,17 +191,3 @@ congestion_index = min(100, wait_ratio × 60 + speed_penalty + tanker_boost)
 | Deployment | Docker, Railway, GitHub Actions |
 
 ---
-
-## Resume One-Liner
-
-> **Oceanic Edge** — Built an end-to-end alternative data platform ingesting real-time AIS (ship GPS) data from the MarineTraffic API to compute port congestion indices across 6 global ports. Engineered a lag-7 signal with r = −0.38 correlation between Fujairah tanker congestion and WTI crude price. Backtested a long-crude strategy yielding +21% simulated P&L over 30 days. Trained an XGBoost model (R² = 0.31, direction accuracy 50%) with walk-forward CV. Deployed with FastAPI backend, hourly GitHub Actions pipeline, Docker, and a real-time alert system. Stack: Python, FastAPI, XGBoost, Docker, Chart.js.
-
----
-
-## Target Roles
-
-- Quant / Data Analyst — Commodity Trading Firm
-- Alternative Data Analyst — Hedge Fund
-- Data Engineer — Maritime FinTech
-- Supply Chain Analytics — Logistics / E-commerce
-- Data Engineer — Financial Services
