@@ -1,22 +1,6 @@
 # 🌊 Oceanic Edge — AIS & Port Congestion Alpha
 
 An end-to-end alternative data platform that ingests real-time AIS (Automatic Identification System) vessel data to compute port congestion indices across 6 global ports, generate commodity price signals, and run a backtested trading strategy.
-
-Built as a resume/portfolio project demonstrating skills in: **data engineering, financial signal research, ML modelling, REST API development, and production deployment.**
-
----
-
-## Live Demo
-
-Open `dashboard/index.html` directly in your browser — no server needed.
-
-Or run with FastAPI:
-```bash
-pip install -r requirements.txt
-uvicorn app:api --reload
-# → http://localhost:8000
-```
-
 ---
 
 ## What It Does
