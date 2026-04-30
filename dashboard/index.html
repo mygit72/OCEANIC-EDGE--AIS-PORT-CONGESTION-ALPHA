@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oceanic Edge — AIS & Port Congestion Alpha</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#060a0f; --s1:#0c1420; --s2:#111c2e; --bd:#1a2d45;
+  --tx:#c8dff0; --mu:#4a6a85; --ac:#00d4ff; --ac2:#0066ff;
+  --lo:#00e676; --mo:#ffd740; --hi:#ff6d00; --cr:#f44336;
+  --font: -apple-system,'Segoe UI',system-ui,sans-serif;
+  --mono: 'Courier New',Courier,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--bg);color:var(--tx);font-family:var(--font);min-height:100vh;}
+
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;
+    border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:500;
+    background:rgba(6,10,15,.92);backdrop-filter:blur(12px);}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-mark{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+           font-size:16px;background:linear-gradient(135deg,var(--ac),var(--ac2));}
+.logo-name{font-size:16px;font-weight:700;letter-spacing:-.3px;}
+.logo-sub{font-size:9px;color:var(--mu);font-family:var(--mono);letter-spacing:.5px;}
+.nav-r{display:flex;align-items:center;gap:12px;}
+.tab-nav{display:flex;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:3px;gap:2px;}
+.tnav{padding:5px 14px;border-radius:6px;font-size:11px;cursor:pointer;color:var(--mu);border:none;background:none;font-family:var(--font);}
+.tnav.on{background:var(--s1);color:var(--tx);}
+.live-pill{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--lo);
+           padding:3px 9px;border:1px solid rgba(0,230,118,.3);border-radius:20px;background:rgba(0,230,118,.06);}
+.ldot{width:5px;height:5px;border-radius:50%;background:var(--lo);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.bell{position:relative;background:var(--s2);border:1px solid var(--bd);border-radius:7px;
+      padding:5px 11px;cursor:pointer;font-size:12px;color:var(--tx);font-family:var(--font);}
+.bell:hover{border-color:var(--ac);}
+.bell-n{position:absolute;top:-5px;right:-5px;background:var(--cr);color:#fff;border-radius:10px;
+        font-size:8px;font-family:var(--mono);padding:1px 4px;font-weight:700;display:none;}
+.clk{font-family:var(--mono);font-size:10px;color:var(--mu);}
+
+.view{display:none;padding:22px 24px;max-width:1440px;margin:0 auto;}
+.view.on{display:block;}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.sc{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;}
+.sc::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--ac),transparent);}
+.sl{font-size:9px;color:var(--mu);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;}
+.sv{font-size:28px;font-weight:700;margin:4px 0 2px;line-height:1;}
+.ss{font-size:9px;color:var(--mu);}
+.sac{color:var(--ac);}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+
+.pnl{background:var(--s1);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--bd);}
+.pt{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;}
+.pb{padding:16px;}
+
+.pc{background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:13px;cursor:pointer;
+    transition:.18s;position:relative;overflow:hidden;}
+.pc:hover,.pc.on{border-color:var(--ac);transform:translateY(-1px);box-shadow:0 0 16px rgba(0,212,255,.1);}
+.pc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;}
+.pc[data-s=LOW]::after{background:var(--lo);}
+.pc[data-s=MODERATE]::after{background:var(--mo);}
+.pc[data-s=HIGH]::after{background:var(--hi);}
+.pc[data-s=CRITICAL]::after{background:var(--cr);box-shadow:0 0 8px var(--cr);}
+.pn{font-size:12px;font-weight:700;}
+.pcom{font-size:9px;color:var(--mu);font-family:var(--mono);margin-top:1px;}
+.pir{display:flex;align-items:baseline;gap:6px;margin:8px 0 4px;}
+.pin{font-size:24px;font-weight:700;line-height:1;}
+.sbadge{display:inline-block;font-size:8px;font-weight:700;font-family:var(--mono);
+        padding:1px 5px;border-radius:3px;letter-spacing:.8px;}
+.sLOW{background:rgba(0,230,118,.15);color:var(--lo);}
+.sMODERATE{background:rgba(255,215,64,.15);color:var(--mo);}
+.sHIGH{background:rgba(255,109,0,.15);color:var(--hi);}
+.sCRITICAL{background:rgba(244,67,54,.2);color:var(--cr);animation:cglow 2s infinite;}
+@keyframes cglow{0%,100%{box-shadow:none}50%{box-shadow:0 0 6px rgba(244,67,54,.4)}}
+.cbar{height:5px;background:var(--bd);border-radius:3px;overflow:hidden;margin:5px 0;}
+.cbf{height:100%;border-radius:3px;transition:width .8s ease;}
+.pst{display:flex;gap:8px;margin-top:5px;}
+.pss{font-size:9px;color:var(--mu);font-family:var(--mono);}
+.pss span{color:var(--tx);}
+
+.cw{position:relative;height:190px;}
+
+.tbr{display:flex;gap:2px;padding:2px;background:var(--bg);border-radius:7px;}
+.tb{padding:3px 9px;border-radius:5px;font-size:9px;font-family:var(--mono);
+    cursor:pointer;color:var(--mu);border:none;background:none;}
+.tb.on{background:var(--s2);color:var(--tx);}
+
+.vt{width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono);}
+.vt th{padding:6px 10px;text-align:left;color:var(--mu);font-size:9px;text-transform:uppercase;
+       letter-spacing:.8px;border-bottom:1px solid var(--bd);}
+.vt td{padding:6px 10px;border-bottom:1px solid rgba(26,45,69,.4);}
+.vt tr:last-child td{border:none;}
+.vt tr:hover td{background:rgba(0,212,255,.03);}
+.vdot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:4px;}
+
+.dr{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bd);font-size:11px;}
+.dr:last-child{border:none;}
+.dk{color:var(--mu);font-family:var(--mono);font-size:10px;}
+.dv{font-weight:600;font-family:var(--mono);}
+
+.cmcard{background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:14px;}
+.cmsym{font-size:9px;color:var(--mu);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;}
+.cmprice{font-size:22px;font-weight:700;margin:4px 0 2px;line-height:1;}
+.cmchg{font-size:10px;font-family:var(--mono);}
+.cmup{color:var(--lo);}
+.cmdn{color:var(--cr);}
+
+.ctbl{width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono);}
+.ctbl th{padding:7px 12px;text-align:left;color:var(--mu);font-size:9px;text-transform:uppercase;
+         letter-spacing:.8px;border-bottom:1px solid var(--bd);}
+.ctbl td{padding:7px 12px;border-bottom:1px solid rgba(26,45,69,.4);}
+.ctbl tr:last-child td{border:none;}
+
+.bt-stat{background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:14px;text-align:center;}
+.bt-val{font-size:24px;font-weight:700;margin:4px 0;}
+.bt-lbl{font-size:9px;color:var(--mu);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;}
+
+#toasts{position:fixed;top:68px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.toast{pointer-events:all;min-width:300px;max-width:360px;background:var(--s2);border:1px solid var(--bd);
+       border-radius:10px;padding:12px 14px;box-shadow:0 6px 24px rgba(0,0,0,.5);
+       display:flex;gap:10px;align-items:flex-start;animation:tin .25s ease;position:relative;overflow:hidden;}
+.toast::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;}
+.toast.CRITICAL::before{background:var(--cr);}
+.toast.HIGH::before{background:var(--hi);}
+.toast.MODERATE::before{background:var(--mo);}
+@keyframes tin{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+.tout{animation:tout .25s ease forwards;}
+@keyframes tout{to{transform:translateX(110%);opacity:0}}
+.t-icon{font-size:18px;flex-shrink:0;}
+.t-body{flex:1;}
+.t-title{font-size:11px;font-weight:700;margin-bottom:2px;}
+.t-msg{font-size:10px;color:var(--mu);font-family:var(--mono);line-height:1.4;}
+.t-ts{font-size:9px;color:var(--mu);font-family:var(--mono);margin-top:4px;}
+.t-close{background:none;border:none;color:var(--mu);cursor:pointer;font-size:13px;padding:0;}
+.t-prog{position:absolute;bottom:0;left:0;height:2px;background:currentColor;opacity:.35;animation:prog 7s linear forwards;}
+@keyframes prog{from{width:100%}to{width:0}}
+.toast.CRITICAL .t-prog{color:var(--cr);}
+.toast.HIGH .t-prog{color:var(--hi);}
+.toast.MODERATE .t-prog{color:var(--mo);}
+
+.al-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd);}
+.al-item:last-child{border:none;}
+.al-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.al-dot.CRITICAL{background:var(--cr);}
+.al-dot.HIGH{background:var(--hi);}
+.al-dot.MODERATE{background:var(--mo);}
+.al-t{font-size:11px;font-weight:700;font-family:var(--mono);}
+.al-d{font-size:9px;color:var(--mu);font-family:var(--mono);margin-top:2px;line-height:1.4;}
+.al-ts{font-size:8px;color:var(--mu);font-family:var(--mono);margin-top:3px;}
+.no-al{text-align:center;padding:24px;color:var(--mu);font-family:var(--mono);font-size:11px;}
+
+#amodal{display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.7);
+        backdrop-filter:blur(4px);align-items:center;justify-content:center;}
+#amodal.on{display:flex;}
+.mbox{background:var(--s1);border:1px solid var(--bd);border-radius:14px;width:440px;max-height:88vh;
+      overflow-y:auto;animation:min .22s ease;}
+@keyframes min{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd);}
+.mt{font-size:13px;font-weight:700;}
+.mc{background:none;border:none;color:var(--mu);cursor:pointer;font-size:16px;}
+.mb{padding:20px;}
+.cfg-lbl{font-size:9px;color:var(--mu);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;margin-bottom:9px;}
+.cfg-sec{margin-bottom:20px;}
+.cfg-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(26,45,69,.5);}
+.cfg-row:last-child{border:none;}
+.cfg-nm{font-size:11px;font-family:var(--mono);}
+.thr-in{width:56px;background:var(--s2);border:1px solid var(--bd);border-radius:5px;
+        color:var(--tx);font-family:var(--mono);font-size:11px;padding:3px 6px;text-align:center;}
+.thr-in:focus{outline:none;border-color:var(--ac);}
+.tog{position:relative;width:34px;height:18px;flex-shrink:0;}
+.tog input{opacity:0;width:0;height:0;}
+.tslide{position:absolute;inset:0;background:var(--bd);border-radius:18px;cursor:pointer;transition:.25s;}
+.tslide::before{content:'';position:absolute;left:2px;bottom:2px;width:14px;height:14px;
+                background:var(--mu);border-radius:50%;transition:.25s;}
+.tog input:checked+.tslide{background:rgba(0,212,255,.3);}
+.tog input:checked+.tslide::before{transform:translateX(16px);background:var(--ac);}
+.mf{padding:12px 20px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--bd);}
+.btn{padding:6px 16px;border-radius:7px;font-family:var(--mono);font-size:10px;cursor:pointer;border:none;}
+.btn-g{background:transparent;border:1px solid var(--bd);color:var(--mu);}
+.btn-g:hover{border-color:var(--tx);color:var(--tx);}
+.btn-p{background:var(--ac2);color:#fff;font-weight:700;}
+.sl-lbl{font-size:9px;color:var(--mu);font-family:var(--mono);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div id="toasts"></div>
+
+<div id="amodal">
+  <div class="mbox">
+    <div class="mh"><div class="mt">&#x1F514; Alert Configuration</div><button class="mc" onclick="closeModal()">&#x2715;</button></div>
+    <div class="mb">
+      <div class="cfg-sec">
+        <div class="cfg-lbl">Thresholds</div>
+        <div class="cfg-row"><span class="cfg-nm">&#x1F534; CRITICAL &ge;</span><input type="number" class="thr-in" id="thC" value="75"></div>
+        <div class="cfg-row"><span class="cfg-nm">&#x1F7E0; HIGH &ge;</span><input type="number" class="thr-in" id="thH" value="50"></div>
+        <div class="cfg-row"><span class="cfg-nm">&#x1F7E1; MODERATE &ge;</span><input type="number" class="thr-in" id="thM" value="25"></div>
+      </div>
+      <div class="cfg-sec">
+        <div class="cfg-lbl">Channels</div>
+        <div class="cfg-row"><span class="cfg-nm">In-app toasts</span><label class="tog"><input type="checkbox" id="chT" checked><span class="tslide"></span></label></div>
+        <div class="cfg-row"><span class="cfg-nm">Mute MODERATE</span><label class="tog"><input type="checkbox" id="chMM"><span class="tslide"></span></label></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="saveAlertCfg()">Save</button>
+    </div>
+  </div>
+</div>
+
+<nav>
+  <div class="logo">
+    <div class="logo-mark">&#x1F30A;</div>
+    <div>
+      <div class="logo-name">OCEANIC EDGE</div>
+      <div class="logo-sub">AIS &amp; PORT CONGESTION ALPHA</div>
+    </div>
+  </div>
+  <div class="nav-r">
+    <div class="tab-nav">
+      <button class="tnav on"  onclick="goView('dashboard',this)">Dashboard</button>
+      <button class="tnav"     onclick="goView('alpha',this)">Alpha / Backtest</button>
+      <button class="tnav"     onclick="goView('ml',this)">ML Model</button>
+    </div>
+    <button class="bell" onclick="openModal()">&#x1F514; Alerts <span class="bell-n" id="bn">0</span></button>
+    <div class="live-pill"><div class="ldot"></div>LIVE</div>
+    <div class="clk" id="clk"></div>
+  </div>
+</nav>
+
+<!-- DASHBOARD -->
+<div class="view on" id="v-dashboard">
+  <div class="stats" id="statsBar"></div>
+  <div class="sl-lbl">Port Congestion Overview</div>
+  <div class="pnl">
+    <div class="ph">
+      <span class="pt">6 Monitored Ports</span>
+      <div style="display:flex;gap:14px">
+        <span style="font-size:9px;color:var(--mu);font-family:var(--mono);display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:2px;background:var(--lo);display:inline-block"></span>LOW</span>
+        <span style="font-size:9px;color:var(--mu);font-family:var(--mono);display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:2px;background:var(--mo);display:inline-block"></span>MODERATE</span>
+        <span style="font-size:9px;color:var(--mu);font-family:var(--mono);display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:2px;background:var(--hi);display:inline-block"></span>HIGH</span>
+        <span style="font-size:9px;color:var(--mu);font-family:var(--mono);display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:2px;background:var(--cr);display:inline-block"></span>CRITICAL</span>
+      </div>
+    </div>
+    <div class="pb"><div class="g3" id="portGrid"></div></div>
+  </div>
+  <div class="g2">
+    <div class="pnl" style="margin:0"><div class="ph"><span class="pt">Congestion Index — All Ports</span></div><div class="pb"><div class="cw"><canvas id="barChart"></canvas></div></div></div>
+    <div class="pnl" style="margin:0"><div class="ph"><span class="pt">Vessel Composition</span><div class="tbr" id="donutTabs"></div></div><div class="pb"><div class="cw"><canvas id="donutChart"></canvas></div></div></div>
+  </div>
+  <div class="g2">
+    <div class="pnl" style="margin:0"><div class="ph"><span class="pt">30-Day Trend</span><div class="tbr" id="trendTabs"></div></div><div class="pb"><div class="cw"><canvas id="trendChart"></canvas></div></div></div>
+    <div class="pnl" style="margin:0"><div class="ph"><span class="pt" id="detTitle">Port Detail</span></div><div class="pb" id="detPanel"><div style="color:var(--mu);font-size:11px;font-family:var(--mono)">Click a port card to view detail</div></div></div>
+  </div>
+  <div class="g2">
+    <div class="pnl" style="margin:0">
+      <div class="ph"><span class="pt">&#x1F514; Alert Log</span><button class="btn btn-g" style="font-size:9px;padding:2px 9px" onclick="clearAlerts()">Clear</button></div>
+      <div style="max-height:240px;overflow-y:auto;padding:8px 16px" id="alertLog"><div class="no-al">No alerts yet</div></div>
+    </div>
+    <div class="pnl" style="margin:0">
+      <div class="ph"><span class="pt" id="vtTitle">Vessels</span><span style="font-family:var(--mono);font-size:9px;color:var(--mu)" id="vcnt"></span></div>
+      <div style="max-height:240px;overflow-y:auto">
+        <table class="vt"><thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Speed</th><th>Flag</th></tr></thead>
+        <tbody id="vtBody"><tr><td colspan="5" style="color:var(--mu);text-align:center;padding:18px">Select a port</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ALPHA / BACKTEST -->
+<div class="view" id="v-alpha">
+  <div class="sl-lbl">Commodity Prices</div>
+  <div class="g4" id="cmCards"></div>
+  <div class="g2">
+    <div class="pnl" style="margin:0"><div class="ph"><span class="pt">Price History — 30 Days</span><div class="tbr" id="priceTabs"></div></div><div class="pb"><div class="cw"><canvas id="priceChart"></canvas></div></div></div>
+    <div class="pnl" style="margin:0">
+      <div class="ph"><span class="pt">Lag-7 Correlation: Congestion &#x2192; Price</span></div>
+      <div class="pb">
+        <div style="font-size:9px;color:var(--mu);font-family:var(--mono);margin-bottom:12px">How well congestion today predicts price 7 days later</div>
+        <table class="ctbl" id="corrTable"></table>
+      </div>
+    </div>
+  </div>
+  <div class="sl-lbl" style="margin-top:8px">Backtest — AIS Congestion Signal vs WTI Crude</div>
+  <div class="g4" id="btStats"></div>
+  <div class="pnl">
+    <div class="ph"><span class="pt">Cumulative P&amp;L</span><span style="font-size:9px;color:var(--mu);font-family:var(--mono)">Long crude when avg(Houston+Fujairah) &gt; 45</span></div>
+    <div class="pb"><div class="cw"><canvas id="btChart"></canvas></div></div>
+  </div>
+  <div class="pnl">
+    <div class="ph"><span class="pt">Strategy Logic</span></div>
+    <div class="pb">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:13px">
+          <div style="font-size:10px;font-weight:700;margin-bottom:6px">&#x1F4E1; Signal Generation</div>
+          <div style="font-size:10px;color:var(--mu);font-family:var(--mono);line-height:1.6">1. Fetch AIS positions hourly<br>2. Compute congestion index per port<br>3. Average crude-oil ports</div>
+        </div>
+        <div style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:13px">
+          <div style="font-size:10px;font-weight:700;margin-bottom:6px">&#x2696;&#xFE0F; Position Sizing</div>
+          <div style="font-size:10px;color:var(--mu);font-family:var(--mono);line-height:1.6">Index &gt; 45 &#x2192; Long crude<br>Index &lt; 25 &#x2192; Flat / exit<br>Scale by index magnitude</div>
+        </div>
+        <div style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:13px">
+          <div style="font-size:10px;font-weight:700;margin-bottom:6px">&#x1F6E1;&#xFE0F; Risk Controls</div>
+          <div style="font-size:10px;color:var(--mu);font-family:var(--mono);line-height:1.6">Max 2% portfolio risk<br>Stop-loss at -1.5% daily<br>No exposure on OPEC days</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ML MODEL -->
+<div class="view" id="v-ml">
+  <div class="sl-lbl">XGBoost Model — Congestion &#x2192; 7-Day Crude Price Change</div>
+  <div class="g4" id="mlMetrics"></div>
+  <div class="g2">
+    <div class="pnl" style="margin:0">
+      <div class="ph"><span class="pt">Predicted vs Actual — 7-Day Price Change (%)</span></div>
+      <div class="pb"><div class="cw"><canvas id="mlPredChart"></canvas></div></div>
+    </div>
+    <div class="pnl" style="margin:0">
+      <div class="ph"><span class="pt">Feature Importance</span></div>
+      <div class="pb" id="featureImportance"><div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);margin-bottom:3px"><span>Houston Congestion Index</span><span style="color:var(--ac)">31%</span></div><div style="height:6px;background:var(--bd);border-radius:3px;overflow:hidden"><div style="height:100%;width:31.0%;background:linear-gradient(90deg,var(--ac2),var(--ac));border-radius:3px"></div></div></div><div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);margin-bottom:3px"><span>Fujairah Tankers Waiting</span><span style="color:var(--ac)">24%</span></div><div style="height:6px;background:var(--bd);border-radius:3px;overflow:hidden"><div style="height:100%;width:24.0%;background:linear-gradient(90deg,var(--ac2),var(--ac));border-radius:3px"></div></div></div><div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);margin-bottom:3px"><span>Avg Fleet Speed (7d lag)</span><span style="color:var(--ac)">18%</span></div><div style="height:6px;background:var(--bd);border-radius:3px;overflow:hidden"><div style="height:100%;width:18.0%;background:linear-gradient(90deg,var(--ac2),var(--ac));border-radius:3px"></div></div></div><div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);margin-bottom:3px"><span>Singapore Congestion</span><span style="color:var(--ac)">13%</span></div><div style="height:6px;background:var(--bd);border-radius:3px;overflow:hidden"><div style="height:100%;width:13.0%;background:linear-gradient(90deg,var(--ac2),var(--ac));border-radius:3px"></div></div></div><div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);margin-bottom:3px"><span>Congestion Δ (week-on-week)</span><span style="color:var(--ac)">9%</span></div><div style="height:6px;background:var(--bd);border-radius:3px;overflow:hidden"><div style="height:100%;width:9.0%;background:linear-gradient(90deg,var(--ac2),var(--ac));border-radius:3px"></div></div></div><div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);margin-bottom:3px"><span>Rotterdam Cargo Count</span><span style="color:var(--ac)">5%</span></div><div style="height:6px;background:var(--bd);border-radius:3px;overflow:hidden"><div style="height:100%;width:5.0%;background:linear-gradient(90deg,var(--ac2),var(--ac));border-radius:3px"></div></div></div></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="pnl" style="margin:0">
+      <div class="ph"><span class="pt">Congestion vs Price Change (Scatter)</span></div>
+      <div class="pb"><div class="cw"><canvas id="mlScatter"></canvas></div></div>
+    </div>
+    <div class="pnl" style="margin:0">
+      <div class="ph"><span class="pt">Model Signal Log</span></div>
+      <div style="max-height:230px;overflow-y:auto">
+        <table class="vt"><thead><tr><th>Date</th><th>Congestion</th><th>Pred &#x394;%</th><th>Actual &#x394;%</th><th>Signal</th></tr></thead>
+        <tbody id="mlSigBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+  <div class="pnl">
+    <div class="ph"><span class="pt">Model Architecture</span></div>
+    <div class="pb">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+        <div style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:13px">
+          <div style="font-size:10px;font-weight:700;margin-bottom:6px">&#x1F4E5; Input Features (6)</div>
+          <div style="font-size:9px;color:var(--mu);font-family:var(--mono);line-height:1.7">Houston congestion idx<br>Fujairah tankers waiting<br>Singapore congestion<br>Fleet avg speed (7d lag)<br>Week-on-week delta<br>Rotterdam cargo count</div>
+        </div>
+        <div style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:13px">
+          <div style="font-size:10px;font-weight:700;margin-bottom:6px">&#x1F333; Algorithm</div>
+          <div style="font-size:9px;color:var(--mu);font-family:var(--mono);line-height:1.7">XGBoost Regressor<br>n_estimators: 100<br>max_depth: 4<br>learning_rate: 0.05<br>subsample: 0.8<br>colsample_bytree: 0.8</div>
+        </div>
+        <div style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:13px">
+          <div style="font-size:10px;font-weight:700;margin-bottom:6px">&#x1F3AF; Target Variable</div>
+          <div style="font-size:9px;color:var(--mu);font-family:var(--mono);line-height:1.7">WTI Crude % change over next 7 days<br><br>LONG if pred &gt; +0.3%<br>SHORT if pred &lt; -0.3%<br>FLAT otherwise</div>
+        </div>
+        <div style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:13px">
+          <div style="font-size:10px;font-weight:700;margin-bottom:6px">&#x2705; Validation</div>
+          <div style="font-size:9px;color:var(--mu);font-family:var(--mono);line-height:1.7">Walk-forward CV<br>No lookahead bias<br>Train: rolling 60d<br>Test: next 7d<br><br>Beats buy-hold by +8.3%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── ALL DATA INJECTED HERE — NO TEMPLATE LITERAL ISSUES ──────────────────────
+const LIVE  = [{"port": "Houston", "timestamp": "2026-04-30T07:51:29.948946+00:00", "total_vessels": 63, "waiting_vessels": 51, "tankers_waiting": 31, "cargo_waiting": 7, "avg_speed_knots": 4.58, "congestion_index": 81.2, "signal": "CRITICAL", "commodity": "Crude Oil", "lat": 29.7355, "lon": -95.006, "vessels": [{"mmsi": "653035110", "name": "Pacific Star", "lat": 29.7335, "lon": -94.9918, "speed": 13.0, "heading": 47, "ship_type": 81, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:48:29", "flag": "PA"}, {"mmsi": "498704996", "name": "Pacific Pioneer", "lat": 29.6423, "lon": -95.0861, "speed": 0.0, "heading": 357, "ship_type": 78, "ship_type_name": "Cargo", "status": 5, "destination": "HOUSTON", "timestamp": "2026-04-30 07:36:29", "flag": "CY"}, {"mmsi": "569319644", "name": "Western Express", "lat": 29.8307, "lon": -94.8436, "speed": 0.2, "heading": 22, "ship_type": 52, "ship_type_name": "Other", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:39:29", "flag": "GB"}, {"mmsi": "588302652", "name": "Western Voyager", "lat": 29.8981, "lon": -94.8191, "speed": 4.2, "heading": 35, "ship_type": 50, "ship_type_name": "Other", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:31:29", "flag": "US"}, {"mmsi": "591735568", "name": "Global Spirit", "lat": 29.7833, "lon": -95.3828, "speed": 8.4, "heading": 181, "ship_type": 51, "ship_type_name": "Other", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:36:29", "flag": "PA"}, {"mmsi": "462863730", "name": "Global Horizon", "lat": 29.6356, "lon": -95.3744, "speed": 1.3, "heading": 194, "ship_type": 71, "ship_type_name": "Cargo", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:27:29", "flag": "MH"}, {"mmsi": "234467368", "name": "Nordic Fortune", "lat": 29.4201, "lon": -95.445, "speed": 12.0, "heading": 137, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:43:29", "flag": "PH"}, {"mmsi": "692688426", "name": "Global Express", "lat": 29.8343, "lon": -95.0487, "speed": 0.2, "heading": 71, "ship_type": 52, "ship_type_name": "Other", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:22:29", "flag": "PA"}, {"mmsi": "348532577", "name": "Eastern Horizon", "lat": 29.3741, "lon": -95.11, "speed": 8.6, "heading": 46, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:43:29", "flag": "US"}, {"mmsi": "702564736", "name": "Eastern Express", "lat": 29.9823, "lon": -94.5997, "speed": 2.2, "heading": 283, "ship_type": 86, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:31:29", "flag": "US"}, {"mmsi": "666825638", "name": "Global Horizon", "lat": 29.9913, "lon": -94.7478, "speed": 8.1, "heading": 1, "ship_type": 52, "ship_type_name": "Other", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:41:29", "flag": "GB"}, {"mmsi": "520452650", "name": "Royal Victory", "lat": 29.6987, "lon": -94.5034, "speed": 1.0, "heading": 311, "ship_type": 82, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:30:29", "flag": "PA"}, {"mmsi": "220912992", "name": "Atlantic Spirit", "lat": 29.7415, "lon": -95.0937, "speed": 10.4, "heading": 157, "ship_type": 88, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:35:29", "flag": "PA"}, {"mmsi": "771988889", "name": "Global Pioneer", "lat": 29.7564, "lon": -95.0291, "speed": 12.3, "heading": 337, "ship_type": 50, "ship_type_name": "Other", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:26:29", "flag": "SG"}, {"mmsi": "779064766", "name": "Grand Pearl", "lat": 29.9762, "lon": -94.5365, "speed": 0.0, "heading": 102, "ship_type": 89, "ship_type_name": "Tanker", "status": 5, "destination": "HOUSTON", "timestamp": "2026-04-30 07:44:29", "flag": "GB"}, {"mmsi": "441266931", "name": "Atlantic Spirit", "lat": 29.8913, "lon": -95.0115, "speed": 9.1, "heading": 10, "ship_type": 77, "ship_type_name": "Cargo", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:43:29", "flag": "NO"}, {"mmsi": "554794895", "name": "Atlantic Victory", "lat": 29.5002, "lon": -95.1743, "speed": 0.4, "heading": 121, "ship_type": 80, "ship_type_name": "Tanker", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:23:29", "flag": "MH"}, {"mmsi": "637077308", "name": "Ocean Eagle", "lat": 29.81, "lon": -94.6305, "speed": 1.6, "heading": 49, "ship_type": 89, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:35:29", "flag": "GR"}, {"mmsi": "265082363", "name": "Asian Pearl", "lat": 29.5443, "lon": -94.8913, "speed": 13.9, "heading": 173, "ship_type": 80, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:47:29", "flag": "PH"}, {"mmsi": "280943908", "name": "Gulf Victory", "lat": 29.7811, "lon": -94.8728, "speed": 0.2, "heading": 50, "ship_type": 86, "ship_type_name": "Tanker", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:23:29", "flag": "US"}, {"mmsi": "636383774", "name": "Gulf Horizon", "lat": 29.42, "lon": -95.1007, "speed": 12.6, "heading": 109, "ship_type": 81, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:45:29", "flag": "CY"}, {"mmsi": "506284028", "name": "Asian Pearl", "lat": 29.9661, "lon": -94.5593, "speed": 0.3, "heading": 284, "ship_type": 86, "ship_type_name": "Tanker", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:36:29", "flag": "GR"}, {"mmsi": "536730606", "name": "Pacific Star", "lat": 29.9378, "lon": -94.6642, "speed": 2.9, "heading": 299, "ship_type": 80, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:27:29", "flag": "SG"}, {"mmsi": "272972420", "name": "Royal Voyager", "lat": 29.8867, "lon": -95.2373, "speed": 0.1, "heading": 206, "ship_type": 88, "ship_type_name": "Tanker", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:31:29", "flag": "PH"}, {"mmsi": "761333669", "name": "Nordic Express", "lat": 29.3091, "lon": -95.2359, "speed": 2.4, "heading": 104, "ship_type": 70, "ship_type_name": "Cargo", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:32:29", "flag": "GR"}, {"mmsi": "277892576", "name": "Pacific Horizon", "lat": 29.7609, "lon": -94.5946, "speed": 4.7, "heading": 318, "ship_type": 84, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:21:29", "flag": "NO"}, {"mmsi": "462298393", "name": "Nordic Express", "lat": 30.1817, "lon": -94.7512, "speed": 0.1, "heading": 80, "ship_type": 84, "ship_type_name": "Tanker", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:48:29", "flag": "SG"}, {"mmsi": "311225158", "name": "Global Express", "lat": 29.6155, "lon": -95.4658, "speed": 0.3, "heading": 59, "ship_type": 78, "ship_type_name": "Cargo", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:41:29", "flag": "PH"}, {"mmsi": "483450553", "name": "Eastern Horizon", "lat": 29.9433, "lon": -94.6517, "speed": 6.8, "heading": 128, "ship_type": 83, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:30:29", "flag": "US"}, {"mmsi": "373497327", "name": "Grand Horizon", "lat": 29.6946, "lon": -94.9814, "speed": 0.1, "heading": 282, "ship_type": 80, "ship_type_name": "Tanker", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:42:29", "flag": "GB"}, {"mmsi": "793269304", "name": "Global Fortune", "lat": 29.9489, "lon": -94.991, "speed": 4.3, "heading": 65, "ship_type": 82, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:32:29", "flag": "US"}, {"mmsi": "310373808", "name": "Nordic Victory", "lat": 29.8596, "lon": -95.1112, "speed": 6.9, "heading": 208, "ship_type": 70, "ship_type_name": "Cargo", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:43:29", "flag": "NO"}, {"mmsi": "642697755", "name": "Pacific Pioneer", "lat": 30.0702, "lon": -95.2001, "speed": 12.3, "heading": 170, "ship_type": 82, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:22:29", "flag": "CY"}, {"mmsi": "241580226", "name": "Gulf Voyager", "lat": 29.999, "lon": -95.3543, "speed": 0.3, "heading": 102, "ship_type": 52, "ship_type_name": "Other", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:38:29", "flag": "SG"}, {"mmsi": "499147754", "name": "Atlantic Express", "lat": 29.8105, "lon": -95.1879, "speed": 0.1, "heading": 179, "ship_type": 51, "ship_type_name": "Other", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:40:29", "flag": "GR"}, {"mmsi": "391735734", "name": "Western Express", "lat": 29.6264, "lon": -95.271, "speed": 6.0, "heading": 19, "ship_type": 52, "ship_type_name": "Other", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:42:29", "flag": "PH"}, {"mmsi": "404095531", "name": "Sea Star", "lat": 29.5668, "lon": -94.7227, "speed": 2.8, "heading": 223, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:38:29", "flag": "US"}, {"mmsi": "554549587", "name": "Western Spirit", "lat": 29.8259, "lon": -95.2867, "speed": 0.0, "heading": 339, "ship_type": 73, "ship_type_name": "Cargo", "status": 5, "destination": "HOUSTON", "timestamp": "2026-04-30 07:48:29", "flag": "PH"}, {"mmsi": "336674237", "name": "Ocean Fortune", "lat": 29.6236, "lon": -94.6121, "speed": 0.3, "heading": 340, "ship_type": 86, "ship_type_name": "Tanker", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:33:29", "flag": "CY"}, {"mmsi": "200435874", "name": "Sea Express", "lat": 30.0129, "lon": -95.2296, "speed": 0.0, "heading": 107, "ship_type": 74, "ship_type_name": "Cargo", "status": 5, "destination": "HOUSTON", "timestamp": "2026-04-30 07:24:29", "flag": "CY"}, {"mmsi": "748868899", "name": "Gulf Pearl", "lat": 29.4276, "lon": -95.287, "speed": 0.0, "heading": 86, "ship_type": 87, "ship_type_name": "Tanker", "status": 5, "destination": "HOUSTON", "timestamp": "2026-04-30 07:44:29", "flag": "GR"}, {"mmsi": "533310361", "name": "Ocean Voyager", "lat": 29.6933, "lon": -95.0107, "speed": 0.4, "heading": 75, "ship_type": 75, "ship_type_name": "Cargo", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:43:29", "flag": "US"}, {"mmsi": "408773243", "name": "Grand Pearl", "lat": 29.7585, "lon": -95.0087, "speed": 4.5, "heading": 196, "ship_type": 71, "ship_type_name": "Cargo", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:32:29", "flag": "SG"}, {"mmsi": "756152900", "name": "Gulf Star", "lat": 29.8554, "lon": -94.8219, "speed": 7.0, "heading": 285, "ship_type": 71, "ship_type_name": "Cargo", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:25:29", "flag": "PA"}, {"mmsi": "540696084", "name": "Gulf Promise", "lat": 30.0672, "lon": -94.6411, "speed": 13.9, "heading": 258, "ship_type": 87, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:31:29", "flag": "CY"}, {"mmsi": "497760792", "name": "Eastern Horizon", "lat": 29.3389, "lon": -95.1477, "speed": 3.9, "heading": 320, "ship_type": 60, "ship_type_name": "Other", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:24:29", "flag": "PA"}, {"mmsi": "348578017", "name": "Global Voyager", "lat": 29.8568, "lon": -94.932, "speed": 0.4, "heading": 196, "ship_type": 84, "ship_type_name": "Tanker", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:48:29", "flag": "GB"}, {"mmsi": "651125671", "name": "Asian Promise", "lat": 29.7527, "lon": -94.9203, "speed": 2.4, "heading": 356, "ship_type": 85, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:44:29", "flag": "US"}, {"mmsi": "649920675", "name": "Eastern Pearl", "lat": 29.7774, "lon": -95.497, "speed": 7.7, "heading": 279, "ship_type": 80, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:38:29", "flag": "NO"}, {"mmsi": "634131719", "name": "Grand Pioneer", "lat": 29.2878, "lon": -94.9678, "speed": 0.1, "heading": 239, "ship_type": 87, "ship_type_name": "Tanker", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:29:29", "flag": "LR"}, {"mmsi": "660219456", "name": "Global Horizon", "lat": 29.2564, "lon": -95.1262, "speed": 0.6, "heading": 93, "ship_type": 90, "ship_type_name": "Other", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:30:29", "flag": "US"}, {"mmsi": "652651788", "name": "Sea Eagle", "lat": 29.6747, "lon": -94.8735, "speed": 8.4, "heading": 240, "ship_type": 85, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:26:29", "flag": "US"}, {"mmsi": "243226844", "name": "Pacific Voyager", "lat": 30.0901, "lon": -94.8674, "speed": 12.0, "heading": 102, "ship_type": 51, "ship_type_name": "Other", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:30:29", "flag": "US"}, {"mmsi": "475139575", "name": "Nordic Pioneer", "lat": 29.7578, "lon": -94.6491, "speed": 1.5, "heading": 310, "ship_type": 81, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:28:29", "flag": "NO"}, {"mmsi": "534961542", "name": "Western Trader", "lat": 29.6403, "lon": -95.55, "speed": 6.0, "heading": 192, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:50:29", "flag": "CY"}, {"mmsi": "329981882", "name": "Western Star", "lat": 29.8857, "lon": -94.4922, "speed": 0.3, "heading": 177, "ship_type": 73, "ship_type_name": "Cargo", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:23:29", "flag": "HK"}, {"mmsi": "313321496", "name": "Asian Spirit", "lat": 29.5883, "lon": -94.8268, "speed": 0.2, "heading": 325, "ship_type": 85, "ship_type_name": "Tanker", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:35:29", "flag": "SG"}, {"mmsi": "719151495", "name": "Gulf Fortune", "lat": 29.4105, "lon": -94.8454, "speed": 4.6, "heading": 303, "ship_type": 74, "ship_type_name": "Cargo", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:26:29", "flag": "MH"}, {"mmsi": "606936666", "name": "Nordic Star", "lat": 29.7401, "lon": -94.8205, "speed": 7.2, "heading": 253, "ship_type": 52, "ship_type_name": "Other", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:36:29", "flag": "BS"}, {"mmsi": "496641124", "name": "Eastern Star", "lat": 29.7569, "lon": -94.9042, "speed": 0.2, "heading": 264, "ship_type": 75, "ship_type_name": "Cargo", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:22:29", "flag": "PA"}, {"mmsi": "681223755", "name": "Pacific Eagle", "lat": 29.7275, "lon": -95.0544, "speed": 10.8, "heading": 150, "ship_type": 83, "ship_type_name": "Tanker", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:35:29", "flag": "PA"}, {"mmsi": "790975123", "name": "Nordic Spirit", "lat": 29.744, "lon": -94.7733, "speed": 2.9, "heading": 359, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "HOUSTON", "timestamp": "2026-04-30 07:37:29", "flag": "SG"}, {"mmsi": "398803134", "name": "Ocean Voyager", "lat": 29.7343, "lon": -94.85, "speed": 0.3, "heading": 247, "ship_type": 83, "ship_type_name": "Tanker", "status": 1, "destination": "HOUSTON", "timestamp": "2026-04-30 07:26:29", "flag": "MH"}]}, {"port": "Rotterdam", "timestamp": "2026-04-30T07:51:29.950085+00:00", "total_vessels": 62, "waiting_vessels": 38, "tankers_waiting": 8, "cargo_waiting": 19, "avg_speed_knots": 4.71, "congestion_index": 58.4, "signal": "HIGH", "commodity": "Mixed / Container", "lat": 51.9225, "lon": 4.479, "vessels": [{"mmsi": "335917419", "name": "Sea Star", "lat": 52.1252, "lon": 3.9038, "speed": 0.0, "heading": 27, "ship_type": 75, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:33:29", "flag": "HK"}, {"mmsi": "704011128", "name": "Gulf Horizon", "lat": 52.0368, "lon": 4.4111, "speed": 0.0, "heading": 174, "ship_type": 77, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:41:29", "flag": "LR"}, {"mmsi": "257562304", "name": "Global Pioneer", "lat": 51.9162, "lon": 5.1312, "speed": 8.6, "heading": 288, "ship_type": 50, "ship_type_name": "Other", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:48:29", "flag": "MH"}, {"mmsi": "761107986", "name": "Asian Horizon", "lat": 51.9229, "lon": 4.5365, "speed": 4.1, "heading": 226, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:43:29", "flag": "MH"}, {"mmsi": "423110563", "name": "Royal Voyager", "lat": 52.2802, "lon": 4.4426, "speed": 0.4, "heading": 135, "ship_type": 79, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:47:29", "flag": "GR"}, {"mmsi": "704564682", "name": "Sea Star", "lat": 51.9247, "lon": 4.5337, "speed": 0.2, "heading": 118, "ship_type": 72, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:31:29", "flag": "MH"}, {"mmsi": "412406764", "name": "Asian Eagle", "lat": 51.8367, "lon": 4.0221, "speed": 12.1, "heading": 278, "ship_type": 73, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:30:29", "flag": "PA"}, {"mmsi": "509893263", "name": "Gulf Eagle", "lat": 52.1489, "lon": 4.2409, "speed": 0.3, "heading": 239, "ship_type": 50, "ship_type_name": "Other", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:31:29", "flag": "GB"}, {"mmsi": "663887247", "name": "Grand Spirit", "lat": 51.8188, "lon": 4.5971, "speed": 0.9, "heading": 309, "ship_type": 78, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:49:29", "flag": "MH"}, {"mmsi": "489385259", "name": "Western Star", "lat": 51.9239, "lon": 4.4963, "speed": 0.6, "heading": 89, "ship_type": 79, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:26:29", "flag": "SG"}, {"mmsi": "727986559", "name": "Atlantic Horizon", "lat": 51.7204, "lon": 4.6035, "speed": 0.0, "heading": 178, "ship_type": 79, "ship_type_name": "Cargo", "status": 5, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:24:29", "flag": "CY"}, {"mmsi": "509471503", "name": "Royal Fortune", "lat": 51.8557, "lon": 4.2816, "speed": 0.0, "heading": 281, "ship_type": 52, "ship_type_name": "Other", "status": 5, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:35:29", "flag": "US"}, {"mmsi": "782605435", "name": "Gulf Fortune", "lat": 51.8478, "lon": 4.7614, "speed": 12.4, "heading": 27, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:50:29", "flag": "PA"}, {"mmsi": "340674381", "name": "Sea Horizon", "lat": 51.7675, "lon": 4.235, "speed": 6.8, "heading": 357, "ship_type": 77, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:33:29", "flag": "SG"}, {"mmsi": "792975437", "name": "Asian Eagle", "lat": 51.9724, "lon": 4.4652, "speed": 7.8, "heading": 115, "ship_type": 73, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:50:29", "flag": "PH"}, {"mmsi": "493587744", "name": "Asian Horizon", "lat": 52.0647, "lon": 4.6888, "speed": 7.6, "heading": 241, "ship_type": 60, "ship_type_name": "Other", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:28:29", "flag": "PA"}, {"mmsi": "274958005", "name": "Sea Fortune", "lat": 52.0395, "lon": 4.7224, "speed": 4.5, "heading": 174, "ship_type": 79, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:23:29", "flag": "HK"}, {"mmsi": "359553112", "name": "Gulf Victory", "lat": 52.0338, "lon": 4.4819, "speed": 3.5, "heading": 247, "ship_type": 79, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:23:29", "flag": "BS"}, {"mmsi": "611211819", "name": "Ocean Fortune", "lat": 51.9337, "lon": 4.2551, "speed": 13.8, "heading": 22, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:43:29", "flag": "BS"}, {"mmsi": "363321843", "name": "Gulf Star", "lat": 51.8364, "lon": 3.9956, "speed": 12.1, "heading": 64, "ship_type": 60, "ship_type_name": "Other", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:30:29", "flag": "HK"}, {"mmsi": "354785699", "name": "Asian Trader", "lat": 51.7243, "lon": 5.0465, "speed": 0.4, "heading": 79, "ship_type": 87, "ship_type_name": "Tanker", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:50:29", "flag": "PH"}, {"mmsi": "772972597", "name": "Asian Spirit", "lat": 52.1145, "lon": 4.418, "speed": 4.3, "heading": 320, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:23:29", "flag": "GB"}, {"mmsi": "508570854", "name": "Ocean Pearl", "lat": 51.5538, "lon": 4.5244, "speed": 0.3, "heading": 46, "ship_type": 79, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:21:29", "flag": "CY"}, {"mmsi": "521549249", "name": "Pacific Star", "lat": 51.949, "lon": 3.8194, "speed": 0.0, "heading": 166, "ship_type": 71, "ship_type_name": "Cargo", "status": 5, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:28:29", "flag": "US"}, {"mmsi": "393334613", "name": "Global Pioneer", "lat": 51.8362, "lon": 4.6193, "speed": 0.0, "heading": 40, "ship_type": 88, "ship_type_name": "Tanker", "status": 5, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:29:29", "flag": "NO"}, {"mmsi": "693460064", "name": "Sea Trader", "lat": 51.6575, "lon": 4.077, "speed": 0.2, "heading": 4, "ship_type": 79, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:42:29", "flag": "SG"}, {"mmsi": "655598254", "name": "Grand Express", "lat": 51.7575, "lon": 3.932, "speed": 13.9, "heading": 233, "ship_type": 77, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:41:29", "flag": "MH"}, {"mmsi": "517690559", "name": "Grand Express", "lat": 51.8603, "lon": 4.5682, "speed": 0.0, "heading": 11, "ship_type": 73, "ship_type_name": "Cargo", "status": 5, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:39:29", "flag": "GR"}, {"mmsi": "507298630", "name": "Ocean Promise", "lat": 52.0872, "lon": 4.4926, "speed": 11.7, "heading": 180, "ship_type": 50, "ship_type_name": "Other", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:24:29", "flag": "PA"}, {"mmsi": "242329671", "name": "Sea Horizon", "lat": 51.7302, "lon": 4.1828, "speed": 4.6, "heading": 17, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:30:29", "flag": "NO"}, {"mmsi": "779184667", "name": "Nordic Victory", "lat": 52.0256, "lon": 4.6602, "speed": 6.6, "heading": 256, "ship_type": 52, "ship_type_name": "Other", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:46:29", "flag": "MH"}, {"mmsi": "563692735", "name": "Atlantic Horizon", "lat": 51.9074, "lon": 5.0395, "speed": 7.7, "heading": 38, "ship_type": 60, "ship_type_name": "Other", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:23:29", "flag": "LR"}, {"mmsi": "296961971", "name": "Asian Star", "lat": 51.9705, "lon": 4.9825, "speed": 12.2, "heading": 135, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:39:29", "flag": "HK"}, {"mmsi": "316335741", "name": "Royal Voyager", "lat": 51.8876, "lon": 4.5404, "speed": 4.2, "heading": 241, "ship_type": 74, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:39:29", "flag": "US"}, {"mmsi": "698503464", "name": "Grand Express", "lat": 52.1644, "lon": 4.3327, "speed": 0.0, "heading": 332, "ship_type": 79, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:24:29", "flag": "CY"}, {"mmsi": "345668163", "name": "Asian Horizon", "lat": 51.9692, "lon": 4.5012, "speed": 0.1, "heading": 189, "ship_type": 87, "ship_type_name": "Tanker", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:33:29", "flag": "GR"}, {"mmsi": "306323670", "name": "Gulf Promise", "lat": 51.792, "lon": 3.8735, "speed": 6.4, "heading": 208, "ship_type": 79, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:37:29", "flag": "MH"}, {"mmsi": "594422907", "name": "Eastern Trader", "lat": 51.9131, "lon": 4.4951, "speed": 5.9, "heading": 183, "ship_type": 73, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:29:29", "flag": "US"}, {"mmsi": "222932394", "name": "Pacific Spirit", "lat": 51.9838, "lon": 4.729, "speed": 0.1, "heading": 124, "ship_type": 87, "ship_type_name": "Tanker", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:30:29", "flag": "LR"}, {"mmsi": "450180427", "name": "Nordic Pioneer", "lat": 52.0136, "lon": 4.9898, "speed": 0.1, "heading": 305, "ship_type": 90, "ship_type_name": "Other", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:23:29", "flag": "US"}, {"mmsi": "227681228", "name": "Global Star", "lat": 52.0374, "lon": 4.4602, "speed": 0.1, "heading": 183, "ship_type": 90, "ship_type_name": "Other", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:29:29", "flag": "PA"}, {"mmsi": "268244921", "name": "Gulf Horizon", "lat": 52.1667, "lon": 4.5184, "speed": 9.7, "heading": 185, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:27:29", "flag": "HK"}, {"mmsi": "759903980", "name": "Sea Horizon", "lat": 51.6863, "lon": 4.5981, "speed": 0.3, "heading": 329, "ship_type": 79, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:23:29", "flag": "US"}, {"mmsi": "286748119", "name": "Nordic Promise", "lat": 51.8974, "lon": 4.4844, "speed": 4.6, "heading": 75, "ship_type": 71, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:48:29", "flag": "PH"}, {"mmsi": "769681065", "name": "Sea Horizon", "lat": 51.8852, "lon": 4.419, "speed": 0.0, "heading": 258, "ship_type": 75, "ship_type_name": "Cargo", "status": 5, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:31:29", "flag": "NO"}, {"mmsi": "445343109", "name": "Asian Spirit", "lat": 51.9704, "lon": 4.1989, "speed": 6.9, "heading": 232, "ship_type": 88, "ship_type_name": "Tanker", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:36:29", "flag": "CY"}, {"mmsi": "709241268", "name": "Atlantic Eagle", "lat": 52.0658, "lon": 4.6371, "speed": 0.0, "heading": 43, "ship_type": 74, "ship_type_name": "Cargo", "status": 5, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:46:29", "flag": "PH"}, {"mmsi": "553954673", "name": "Royal Eagle", "lat": 51.9164, "lon": 4.1874, "speed": 3.1, "heading": 210, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:33:29", "flag": "BS"}, {"mmsi": "311240259", "name": "Western Victory", "lat": 52.2619, "lon": 4.2656, "speed": 10.4, "heading": 108, "ship_type": 70, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:39:29", "flag": "LR"}, {"mmsi": "499110343", "name": "Western Voyager", "lat": 51.9666, "lon": 4.9169, "speed": 0.0, "heading": 219, "ship_type": 88, "ship_type_name": "Tanker", "status": 5, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:26:29", "flag": "HK"}, {"mmsi": "487169808", "name": "Pacific Pioneer", "lat": 52.0918, "lon": 3.8805, "speed": 0.4, "heading": 139, "ship_type": 78, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:24:29", "flag": "GB"}, {"mmsi": "274716780", "name": "Global Pearl", "lat": 52.2023, "lon": 4.2352, "speed": 10.1, "heading": 324, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:38:29", "flag": "US"}, {"mmsi": "548303473", "name": "Western Promise", "lat": 51.885, "lon": 4.4672, "speed": 0.1, "heading": 43, "ship_type": 77, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:27:29", "flag": "US"}, {"mmsi": "674641329", "name": "Asian Express", "lat": 51.9243, "lon": 4.3739, "speed": 0.3, "heading": 110, "ship_type": 81, "ship_type_name": "Tanker", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:35:29", "flag": "HK"}, {"mmsi": "436779871", "name": "Asian Promise", "lat": 51.8796, "lon": 4.5118, "speed": 3.5, "heading": 28, "ship_type": 79, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:49:29", "flag": "US"}, {"mmsi": "662412302", "name": "Global Pioneer", "lat": 52.0027, "lon": 4.4325, "speed": 0.0, "heading": 194, "ship_type": 74, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:35:29", "flag": "HK"}, {"mmsi": "668387228", "name": "Pacific Horizon", "lat": 51.6293, "lon": 4.4782, "speed": 0.3, "heading": 39, "ship_type": 52, "ship_type_name": "Other", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:49:29", "flag": "BS"}, {"mmsi": "384547422", "name": "Western Horizon", "lat": 51.7077, "lon": 4.3059, "speed": 0.2, "heading": 353, "ship_type": 76, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:40:29", "flag": "BS"}, {"mmsi": "624951250", "name": "Sea Pearl", "lat": 51.943, "lon": 4.4296, "speed": 0.0, "heading": 173, "ship_type": 79, "ship_type_name": "Cargo", "status": 5, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:48:29", "flag": "PA"}, {"mmsi": "575138838", "name": "Nordic Pearl", "lat": 51.9908, "lon": 4.6749, "speed": 1.4, "heading": 330, "ship_type": 71, "ship_type_name": "Cargo", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:26:29", "flag": "LR"}, {"mmsi": "390209201", "name": "Royal Horizon", "lat": 51.9821, "lon": 4.606, "speed": 0.3, "heading": 237, "ship_type": 79, "ship_type_name": "Cargo", "status": 1, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:48:29", "flag": "NO"}, {"mmsi": "539451556", "name": "Global Horizon", "lat": 51.6221, "lon": 4.641, "speed": 4.9, "heading": 34, "ship_type": 90, "ship_type_name": "Other", "status": 0, "destination": "ROTTERDAM", "timestamp": "2026-04-30 07:40:29", "flag": "SG"}]}, {"port": "Singapore", "timestamp": "2026-04-30T07:51:29.951255+00:00", "total_vessels": 68, "waiting_vessels": 49, "tankers_waiting": 12, "cargo_waiting": 18, "avg_speed_knots": 4.53, "congestion_index": 72.1, "signal": "HIGH", "commodity": "Bunker / Container", "lat": 1.2644, "lon": 103.823, "vessels": [{"mmsi": "595928981", "name": "Sea Eagle", "lat": 1.0416, "lon": 103.6787, "speed": 0.2, "heading": 330, "ship_type": 71, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:49:29", "flag": "PH"}, {"mmsi": "682897882", "name": "Western Trader", "lat": 1.0596, "lon": 103.8139, "speed": 11.7, "heading": 96, "ship_type": 78, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:49:29", "flag": "BS"}, {"mmsi": "290547712", "name": "Eastern Trader", "lat": 1.0627, "lon": 103.8213, "speed": 0.4, "heading": 88, "ship_type": 60, "ship_type_name": "Other", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:40:29", "flag": "US"}, {"mmsi": "503754671", "name": "Asian Fortune", "lat": 1.1881, "lon": 103.8545, "speed": 2.1, "heading": 173, "ship_type": 78, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:21:29", "flag": "GR"}, {"mmsi": "505100495", "name": "Sea Pearl", "lat": 1.313, "lon": 103.6297, "speed": 0.2, "heading": 336, "ship_type": 71, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:38:29", "flag": "NO"}, {"mmsi": "620861681", "name": "Global Promise", "lat": 1.1188, "lon": 104.0751, "speed": 7.8, "heading": 43, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:30:29", "flag": "MH"}, {"mmsi": "765210546", "name": "Atlantic Trader", "lat": 1.1488, "lon": 103.6768, "speed": 12.5, "heading": 343, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:27:29", "flag": "CY"}, {"mmsi": "443248743", "name": "Global Pioneer", "lat": 1.4328, "lon": 103.8424, "speed": 0.3, "heading": 39, "ship_type": 73, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:44:29", "flag": "MH"}, {"mmsi": "340712839", "name": "Western Fortune", "lat": 1.4909, "lon": 103.9901, "speed": 0.1, "heading": 78, "ship_type": 78, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:26:29", "flag": "LR"}, {"mmsi": "455046107", "name": "Gulf Promise", "lat": 1.2432, "lon": 103.7665, "speed": 5.4, "heading": 145, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:39:29", "flag": "GB"}, {"mmsi": "673087862", "name": "Gulf Express", "lat": 1.2906, "lon": 104.083, "speed": 6.7, "heading": 195, "ship_type": 77, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:29:29", "flag": "HK"}, {"mmsi": "716030284", "name": "Nordic Victory", "lat": 1.4363, "lon": 103.786, "speed": 0.1, "heading": 52, "ship_type": 90, "ship_type_name": "Other", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:30:29", "flag": "GB"}, {"mmsi": "669732588", "name": "Atlantic Voyager", "lat": 1.4318, "lon": 103.5961, "speed": 0.4, "heading": 230, "ship_type": 72, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:46:29", "flag": "BS"}, {"mmsi": "441096660", "name": "Pacific Spirit", "lat": 0.9975, "lon": 103.9811, "speed": 0.4, "heading": 50, "ship_type": 75, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:39:29", "flag": "GB"}, {"mmsi": "349027517", "name": "Grand Horizon", "lat": 1.3201, "lon": 103.6136, "speed": 9.3, "heading": 229, "ship_type": 84, "ship_type_name": "Tanker", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:24:29", "flag": "NO"}, {"mmsi": "654466340", "name": "Atlantic Express", "lat": 1.2659, "lon": 103.8238, "speed": 3.8, "heading": 121, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:34:29", "flag": "MH"}, {"mmsi": "736687537", "name": "Western Victory", "lat": 1.2673, "lon": 103.8635, "speed": 1.0, "heading": 8, "ship_type": 79, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:22:29", "flag": "GR"}, {"mmsi": "647286055", "name": "Global Trader", "lat": 1.2731, "lon": 103.9946, "speed": 0.1, "heading": 342, "ship_type": 86, "ship_type_name": "Tanker", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:32:29", "flag": "PH"}, {"mmsi": "221833792", "name": "Asian Horizon", "lat": 1.1527, "lon": 103.9571, "speed": 4.9, "heading": 22, "ship_type": 90, "ship_type_name": "Other", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:33:29", "flag": "GR"}, {"mmsi": "311308231", "name": "Western Pearl", "lat": 1.1742, "lon": 103.9152, "speed": 8.1, "heading": 170, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:27:29", "flag": "LR"}, {"mmsi": "713818935", "name": "Royal Pioneer", "lat": 1.2502, "lon": 103.8188, "speed": 11.2, "heading": 69, "ship_type": 51, "ship_type_name": "Other", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:28:29", "flag": "PH"}, {"mmsi": "538868427", "name": "Sea Victory", "lat": 1.4883, "lon": 103.7402, "speed": 0.1, "heading": 203, "ship_type": 83, "ship_type_name": "Tanker", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:49:29", "flag": "HK"}, {"mmsi": "251329185", "name": "Royal Spirit", "lat": 1.418, "lon": 103.859, "speed": 0.0, "heading": 139, "ship_type": 74, "ship_type_name": "Cargo", "status": 5, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:26:29", "flag": "PH"}, {"mmsi": "732794158", "name": "Grand Horizon", "lat": 1.0186, "lon": 103.9258, "speed": 8.5, "heading": 188, "ship_type": 77, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:45:29", "flag": "HK"}, {"mmsi": "515429295", "name": "Nordic Eagle", "lat": 1.3416, "lon": 103.8671, "speed": 4.2, "heading": 40, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:33:29", "flag": "BS"}, {"mmsi": "245478504", "name": "Grand Spirit", "lat": 1.1878, "lon": 104.0296, "speed": 0.2, "heading": 314, "ship_type": 76, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:36:29", "flag": "CY"}, {"mmsi": "371784435", "name": "Pacific Pioneer", "lat": 1.3552, "lon": 103.8115, "speed": 8.7, "heading": 311, "ship_type": 50, "ship_type_name": "Other", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:34:29", "flag": "GR"}, {"mmsi": "234773472", "name": "Western Pioneer", "lat": 1.5186, "lon": 103.8795, "speed": 0.0, "heading": 347, "ship_type": 85, "ship_type_name": "Tanker", "status": 5, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:32:29", "flag": "SG"}, {"mmsi": "499240862", "name": "Ocean Eagle", "lat": 1.045, "lon": 104.0509, "speed": 0.1, "heading": 13, "ship_type": 79, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:40:29", "flag": "GB"}, {"mmsi": "430393232", "name": "Western Express", "lat": 1.2028, "lon": 103.8161, "speed": 0.1, "heading": 355, "ship_type": 50, "ship_type_name": "Other", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:36:29", "flag": "SG"}, {"mmsi": "543154754", "name": "Royal Spirit", "lat": 1.3083, "lon": 103.8733, "speed": 9.0, "heading": 33, "ship_type": 82, "ship_type_name": "Tanker", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:48:29", "flag": "HK"}, {"mmsi": "415801027", "name": "Global Voyager", "lat": 1.4046, "lon": 103.7089, "speed": 9.6, "heading": 252, "ship_type": 51, "ship_type_name": "Other", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:47:29", "flag": "US"}, {"mmsi": "532098383", "name": "Asian Pearl", "lat": 1.1563, "lon": 103.7702, "speed": 0.4, "heading": 245, "ship_type": 78, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:48:29", "flag": "HK"}, {"mmsi": "700184588", "name": "Royal Victory", "lat": 1.149, "lon": 103.8968, "speed": 10.8, "heading": 176, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:36:29", "flag": "LR"}, {"mmsi": "259499094", "name": "Atlantic Victory", "lat": 1.3197, "lon": 103.5356, "speed": 6.2, "heading": 78, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:34:29", "flag": "MH"}, {"mmsi": "284675178", "name": "Sea Voyager", "lat": 1.2402, "lon": 103.8723, "speed": 9.7, "heading": 325, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:41:29", "flag": "HK"}, {"mmsi": "365564833", "name": "Global Trader", "lat": 1.1997, "lon": 103.7583, "speed": 1.3, "heading": 319, "ship_type": 71, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:32:29", "flag": "GB"}, {"mmsi": "484172112", "name": "Royal Voyager", "lat": 1.1071, "lon": 104.0793, "speed": 5.3, "heading": 292, "ship_type": 50, "ship_type_name": "Other", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:49:29", "flag": "CY"}, {"mmsi": "462935648", "name": "Royal Fortune", "lat": 1.4667, "lon": 103.862, "speed": 0.4, "heading": 152, "ship_type": 90, "ship_type_name": "Other", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:35:29", "flag": "SG"}, {"mmsi": "535632899", "name": "Grand Spirit", "lat": 1.287, "lon": 103.8319, "speed": 2.0, "heading": 176, "ship_type": 77, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:46:29", "flag": "CY"}, {"mmsi": "466200875", "name": "Global Eagle", "lat": 1.2345, "lon": 103.8547, "speed": 0.0, "heading": 25, "ship_type": 75, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:36:29", "flag": "MH"}, {"mmsi": "535775088", "name": "Ocean Pioneer", "lat": 1.4716, "lon": 103.5855, "speed": 13.4, "heading": 255, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:27:29", "flag": "HK"}, {"mmsi": "431009561", "name": "Western Spirit", "lat": 1.3772, "lon": 103.7158, "speed": 9.5, "heading": 24, "ship_type": 71, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:43:29", "flag": "US"}, {"mmsi": "662705171", "name": "Global Express", "lat": 1.1877, "lon": 103.7691, "speed": 0.0, "heading": 187, "ship_type": 60, "ship_type_name": "Other", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:47:29", "flag": "CY"}, {"mmsi": "278954113", "name": "Asian Victory", "lat": 1.1655, "lon": 103.8944, "speed": 0.0, "heading": 230, "ship_type": 73, "ship_type_name": "Cargo", "status": 5, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:41:29", "flag": "HK"}, {"mmsi": "564090064", "name": "Eastern Spirit", "lat": 1.3574, "lon": 103.8166, "speed": 0.0, "heading": 73, "ship_type": 71, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:39:29", "flag": "PA"}, {"mmsi": "757629251", "name": "Gulf Pioneer", "lat": 1.1009, "lon": 103.9396, "speed": 0.1, "heading": 310, "ship_type": 80, "ship_type_name": "Tanker", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:35:29", "flag": "HK"}, {"mmsi": "561178244", "name": "Eastern Victory", "lat": 1.3067, "lon": 103.8035, "speed": 11.7, "heading": 272, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:41:29", "flag": "SG"}, {"mmsi": "530366556", "name": "Grand Pearl", "lat": 1.1917, "lon": 104.0478, "speed": 0.0, "heading": 322, "ship_type": 52, "ship_type_name": "Other", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:37:29", "flag": "US"}, {"mmsi": "715877957", "name": "Global Victory", "lat": 1.245, "lon": 104.0211, "speed": 3.7, "heading": 322, "ship_type": 79, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:32:29", "flag": "GB"}, {"mmsi": "404853117", "name": "Pacific Horizon", "lat": 1.3764, "lon": 103.6494, "speed": 0.4, "heading": 160, "ship_type": 83, "ship_type_name": "Tanker", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:47:29", "flag": "CY"}, {"mmsi": "266874023", "name": "Grand Pioneer", "lat": 1.246, "lon": 103.776, "speed": 12.9, "heading": 265, "ship_type": 79, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:27:29", "flag": "PA"}, {"mmsi": "772440825", "name": "Nordic Victory", "lat": 1.4513, "lon": 103.8208, "speed": 0.1, "heading": 181, "ship_type": 76, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:21:29", "flag": "GR"}, {"mmsi": "499580835", "name": "Eastern Express", "lat": 1.2177, "lon": 103.5699, "speed": 1.4, "heading": 115, "ship_type": 74, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:43:29", "flag": "MH"}, {"mmsi": "493622794", "name": "Sea Eagle", "lat": 1.1925, "lon": 103.5761, "speed": 0.1, "heading": 293, "ship_type": 77, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:21:29", "flag": "GR"}, {"mmsi": "245168545", "name": "Sea Pearl", "lat": 1.408, "lon": 103.7127, "speed": 12.2, "heading": 40, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:41:29", "flag": "BS"}, {"mmsi": "491651334", "name": "Global Eagle", "lat": 1.0928, "lon": 103.5671, "speed": 0.2, "heading": 315, "ship_type": 73, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:21:29", "flag": "GB"}, {"mmsi": "643778963", "name": "Nordic Pearl", "lat": 1.2737, "lon": 104.0184, "speed": 0.1, "heading": 241, "ship_type": 78, "ship_type_name": "Cargo", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:47:29", "flag": "PH"}, {"mmsi": "710778600", "name": "Gulf Trader", "lat": 1.4119, "lon": 103.9957, "speed": 0.0, "heading": 102, "ship_type": 51, "ship_type_name": "Other", "status": 5, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:21:29", "flag": "MH"}, {"mmsi": "240048684", "name": "Global Fortune", "lat": 1.1993, "lon": 103.738, "speed": 7.1, "heading": 90, "ship_type": 50, "ship_type_name": "Other", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:27:29", "flag": "US"}, {"mmsi": "315213239", "name": "Nordic Express", "lat": 0.9992, "lon": 104.0235, "speed": 5.1, "heading": 232, "ship_type": 74, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:32:29", "flag": "GR"}, {"mmsi": "555069350", "name": "Global Pearl", "lat": 1.0834, "lon": 103.8299, "speed": 1.4, "heading": 234, "ship_type": 90, "ship_type_name": "Other", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:47:29", "flag": "GR"}, {"mmsi": "635391971", "name": "Asian Victory", "lat": 1.2979, "lon": 103.902, "speed": 3.9, "heading": 167, "ship_type": 74, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:45:29", "flag": "PH"}, {"mmsi": "611859868", "name": "Ocean Horizon", "lat": 1.3747, "lon": 103.8984, "speed": 0.1, "heading": 136, "ship_type": 60, "ship_type_name": "Other", "status": 1, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:42:29", "flag": "BS"}, {"mmsi": "699714064", "name": "Sea Pioneer", "lat": 1.2473, "lon": 103.7238, "speed": 5.6, "heading": 207, "ship_type": 85, "ship_type_name": "Tanker", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:47:29", "flag": "GR"}, {"mmsi": "594647257", "name": "Western Voyager", "lat": 1.3968, "lon": 103.7204, "speed": 10.7, "heading": 112, "ship_type": 74, "ship_type_name": "Cargo", "status": 0, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:41:29", "flag": "LR"}, {"mmsi": "705547798", "name": "Eastern Trader", "lat": 1.1113, "lon": 103.8675, "speed": 0.0, "heading": 111, "ship_type": 52, "ship_type_name": "Other", "status": 5, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:33:29", "flag": "PA"}, {"mmsi": "588463544", "name": "Atlantic Promise", "lat": 1.0775, "lon": 103.6945, "speed": 0.0, "heading": 57, "ship_type": 78, "ship_type_name": "Cargo", "status": 5, "destination": "SINGAPORE", "timestamp": "2026-04-30 07:28:29", "flag": "US"}]}, {"port": "Qingdao", "timestamp": "2026-04-30T07:51:29.952164+00:00", "total_vessels": 49, "waiting_vessels": 22, "tankers_waiting": 4, "cargo_waiting": 15, "avg_speed_knots": 4.57, "congestion_index": 36.7, "signal": "MODERATE", "commodity": "Iron Ore / Coal", "lat": 36.0671, "lon": 120.382, "vessels": [{"mmsi": "420548167", "name": "Grand Promise", "lat": 36.2075, "lon": 120.6207, "speed": 0.0, "heading": 250, "ship_type": 78, "ship_type_name": "Cargo", "status": 5, "destination": "QINGDAO", "timestamp": "2026-04-30 07:29:29", "flag": "PH"}, {"mmsi": "696474925", "name": "Royal Express", "lat": 35.7143, "lon": 120.5376, "speed": 2.6, "heading": 11, "ship_type": 82, "ship_type_name": "Tanker", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:49:29", "flag": "CY"}, {"mmsi": "781069884", "name": "Pacific Eagle", "lat": 36.1731, "lon": 120.3845, "speed": 0.1, "heading": 241, "ship_type": 71, "ship_type_name": "Cargo", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:48:29", "flag": "US"}, {"mmsi": "610684364", "name": "Gulf Fortune", "lat": 36.118, "lon": 120.5159, "speed": 0.0, "heading": 192, "ship_type": 86, "ship_type_name": "Tanker", "status": 5, "destination": "QINGDAO", "timestamp": "2026-04-30 07:22:29", "flag": "PH"}, {"mmsi": "767840357", "name": "Global Pearl", "lat": 35.9174, "lon": 120.0828, "speed": 0.4, "heading": 114, "ship_type": 75, "ship_type_name": "Cargo", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:38:29", "flag": "US"}, {"mmsi": "446599912", "name": "Ocean Horizon", "lat": 36.3793, "lon": 120.3295, "speed": 0.0, "heading": 177, "ship_type": 78, "ship_type_name": "Cargo", "status": 5, "destination": "QINGDAO", "timestamp": "2026-04-30 07:38:29", "flag": "LR"}, {"mmsi": "216799547", "name": "Ocean Voyager", "lat": 36.1732, "lon": 120.3276, "speed": 0.3, "heading": 34, "ship_type": 71, "ship_type_name": "Cargo", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:31:29", "flag": "PH"}, {"mmsi": "451619881", "name": "Eastern Voyager", "lat": 35.8335, "lon": 120.4831, "speed": 0.0, "heading": 28, "ship_type": 70, "ship_type_name": "Cargo", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:36:29", "flag": "LR"}, {"mmsi": "544311548", "name": "Ocean Express", "lat": 36.0158, "lon": 120.6339, "speed": 0.2, "heading": 73, "ship_type": 90, "ship_type_name": "Other", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:29:29", "flag": "GR"}, {"mmsi": "388047830", "name": "Royal Trader", "lat": 35.8812, "lon": 120.5209, "speed": 12.9, "heading": 218, "ship_type": 78, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:21:29", "flag": "HK"}, {"mmsi": "638364955", "name": "Global Express", "lat": 36.2705, "lon": 120.3377, "speed": 7.9, "heading": 192, "ship_type": 60, "ship_type_name": "Other", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:37:29", "flag": "LR"}, {"mmsi": "261873231", "name": "Eastern Fortune", "lat": 35.7571, "lon": 120.4464, "speed": 6.3, "heading": 213, "ship_type": 52, "ship_type_name": "Other", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:36:29", "flag": "HK"}, {"mmsi": "598441427", "name": "Atlantic Victory", "lat": 35.8984, "lon": 120.5582, "speed": 4.7, "heading": 97, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:23:29", "flag": "US"}, {"mmsi": "433019716", "name": "Gulf Voyager", "lat": 36.0155, "lon": 120.2592, "speed": 0.3, "heading": 170, "ship_type": 71, "ship_type_name": "Cargo", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:27:29", "flag": "MH"}, {"mmsi": "460482447", "name": "Grand Promise", "lat": 36.464, "lon": 120.4295, "speed": 11.8, "heading": 104, "ship_type": 50, "ship_type_name": "Other", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:21:29", "flag": "CY"}, {"mmsi": "480849661", "name": "Nordic Victory", "lat": 35.706, "lon": 120.2304, "speed": 3.4, "heading": 254, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:41:29", "flag": "SG"}, {"mmsi": "249086585", "name": "Western Voyager", "lat": 36.1079, "lon": 120.376, "speed": 8.3, "heading": 74, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:37:29", "flag": "US"}, {"mmsi": "607849850", "name": "Western Voyager", "lat": 36.1668, "lon": 120.3284, "speed": 0.1, "heading": 255, "ship_type": 76, "ship_type_name": "Cargo", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:43:29", "flag": "HK"}, {"mmsi": "694811370", "name": "Global Pearl", "lat": 35.9585, "lon": 120.0725, "speed": 10.8, "heading": 180, "ship_type": 77, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:35:29", "flag": "LR"}, {"mmsi": "236317983", "name": "Atlantic Trader", "lat": 36.0113, "lon": 120.3612, "speed": 13.6, "heading": 24, "ship_type": 88, "ship_type_name": "Tanker", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:34:29", "flag": "US"}, {"mmsi": "264907817", "name": "Western Trader", "lat": 36.1615, "lon": 120.2044, "speed": 0.2, "heading": 341, "ship_type": 72, "ship_type_name": "Cargo", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:39:29", "flag": "NO"}, {"mmsi": "495000621", "name": "Eastern Express", "lat": 35.8619, "lon": 119.9859, "speed": 0.6, "heading": 8, "ship_type": 88, "ship_type_name": "Tanker", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:34:29", "flag": "HK"}, {"mmsi": "458738317", "name": "Ocean Promise", "lat": 35.9114, "lon": 120.0097, "speed": 0.0, "heading": 269, "ship_type": 51, "ship_type_name": "Other", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:46:29", "flag": "MH"}, {"mmsi": "442512383", "name": "Sea Trader", "lat": 36.0302, "lon": 120.7997, "speed": 9.1, "heading": 41, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:43:29", "flag": "GR"}, {"mmsi": "711106584", "name": "Pacific Trader", "lat": 35.824, "lon": 119.9686, "speed": 0.0, "heading": 4, "ship_type": 86, "ship_type_name": "Tanker", "status": 5, "destination": "QINGDAO", "timestamp": "2026-04-30 07:33:29", "flag": "GB"}, {"mmsi": "767106600", "name": "Pacific Voyager", "lat": 35.9957, "lon": 120.3821, "speed": 4.4, "heading": 108, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:47:29", "flag": "GB"}, {"mmsi": "235328023", "name": "Global Spirit", "lat": 35.7017, "lon": 120.4521, "speed": 7.5, "heading": 8, "ship_type": 81, "ship_type_name": "Tanker", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:33:29", "flag": "PA"}, {"mmsi": "458205053", "name": "Western Fortune", "lat": 36.0706, "lon": 120.0794, "speed": 7.7, "heading": 346, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:32:29", "flag": "HK"}, {"mmsi": "304889313", "name": "Asian Voyager", "lat": 36.072, "lon": 120.2111, "speed": 4.9, "heading": 38, "ship_type": 81, "ship_type_name": "Tanker", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:49:29", "flag": "BS"}, {"mmsi": "726781451", "name": "Ocean Spirit", "lat": 35.8768, "lon": 120.1774, "speed": 0.1, "heading": 283, "ship_type": 75, "ship_type_name": "Cargo", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:36:29", "flag": "CY"}, {"mmsi": "278927201", "name": "Atlantic Express", "lat": 35.9902, "lon": 120.1808, "speed": 7.7, "heading": 78, "ship_type": 71, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:43:29", "flag": "CY"}, {"mmsi": "205578324", "name": "Sea Horizon", "lat": 35.8695, "lon": 120.1085, "speed": 0.0, "heading": 184, "ship_type": 75, "ship_type_name": "Cargo", "status": 5, "destination": "QINGDAO", "timestamp": "2026-04-30 07:48:29", "flag": "MH"}, {"mmsi": "296227496", "name": "Nordic Victory", "lat": 36.1034, "lon": 120.4095, "speed": 2.3, "heading": 47, "ship_type": 78, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:50:29", "flag": "NO"}, {"mmsi": "290945411", "name": "Grand Victory", "lat": 35.9548, "lon": 120.6572, "speed": 0.0, "heading": 124, "ship_type": 74, "ship_type_name": "Cargo", "status": 5, "destination": "QINGDAO", "timestamp": "2026-04-30 07:26:29", "flag": "NO"}, {"mmsi": "379537578", "name": "Asian Express", "lat": 35.9813, "lon": 120.1353, "speed": 0.2, "heading": 215, "ship_type": 84, "ship_type_name": "Tanker", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:48:29", "flag": "MH"}, {"mmsi": "409968304", "name": "Gulf Eagle", "lat": 36.2458, "lon": 120.498, "speed": 9.5, "heading": 69, "ship_type": 73, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:31:29", "flag": "MH"}, {"mmsi": "662370643", "name": "Royal Promise", "lat": 36.0649, "lon": 120.3841, "speed": 8.0, "heading": 69, "ship_type": 60, "ship_type_name": "Other", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:40:29", "flag": "MH"}, {"mmsi": "512940071", "name": "Grand Pearl", "lat": 36.1934, "lon": 120.3282, "speed": 0.2, "heading": 324, "ship_type": 75, "ship_type_name": "Cargo", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:40:29", "flag": "SG"}, {"mmsi": "414533665", "name": "Western Victory", "lat": 36.1476, "lon": 119.8932, "speed": 8.5, "heading": 92, "ship_type": 74, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:47:29", "flag": "GR"}, {"mmsi": "274258554", "name": "Asian Trader", "lat": 36.3824, "lon": 120.4486, "speed": 0.0, "heading": 255, "ship_type": 73, "ship_type_name": "Cargo", "status": 5, "destination": "QINGDAO", "timestamp": "2026-04-30 07:41:29", "flag": "LR"}, {"mmsi": "714574336", "name": "Western Fortune", "lat": 36.0803, "lon": 120.7081, "speed": 5.7, "heading": 273, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:31:29", "flag": "HK"}, {"mmsi": "776498415", "name": "Western Trader", "lat": 36.3299, "lon": 120.0342, "speed": 8.2, "heading": 43, "ship_type": 70, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:22:29", "flag": "PH"}, {"mmsi": "629086280", "name": "Nordic Fortune", "lat": 35.8914, "lon": 120.0506, "speed": 0.4, "heading": 54, "ship_type": 79, "ship_type_name": "Cargo", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:29:29", "flag": "US"}, {"mmsi": "601707828", "name": "Asian Horizon", "lat": 36.0743, "lon": 120.432, "speed": 3.1, "heading": 347, "ship_type": 78, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:36:29", "flag": "NO"}, {"mmsi": "324628497", "name": "Grand Pioneer", "lat": 36.2351, "lon": 120.6709, "speed": 0.2, "heading": 178, "ship_type": 60, "ship_type_name": "Other", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:48:29", "flag": "MH"}, {"mmsi": "685811477", "name": "Nordic Eagle", "lat": 36.0976, "lon": 120.2092, "speed": 2.5, "heading": 153, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:28:29", "flag": "US"}, {"mmsi": "461899532", "name": "Eastern Pioneer", "lat": 36.3202, "lon": 120.6583, "speed": 6.5, "heading": 282, "ship_type": 50, "ship_type_name": "Other", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:27:29", "flag": "LR"}, {"mmsi": "664000836", "name": "Asian Star", "lat": 35.9437, "lon": 120.4581, "speed": 1.3, "heading": 314, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "QINGDAO", "timestamp": "2026-04-30 07:29:29", "flag": "PA"}, {"mmsi": "267177312", "name": "Western Eagle", "lat": 35.8978, "lon": 120.4813, "speed": 0.3, "heading": 274, "ship_type": 83, "ship_type_name": "Tanker", "status": 1, "destination": "QINGDAO", "timestamp": "2026-04-30 07:25:29", "flag": "LR"}]}, {"port": "Fujairah", "timestamp": "2026-04-30T07:51:29.953732+00:00", "total_vessels": 60, "waiting_vessels": 41, "tankers_waiting": 28, "cargo_waiting": 3, "avg_speed_knots": 4.22, "congestion_index": 67.4, "signal": "HIGH", "commodity": "Crude Oil", "lat": 25.1288, "lon": 56.326, "vessels": [{"mmsi": "617298229", "name": "Western Fortune", "lat": 25.1784, "lon": 56.3736, "speed": 3.4, "heading": 300, "ship_type": 77, "ship_type_name": "Cargo", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:31:29", "flag": "PH"}, {"mmsi": "343825321", "name": "Nordic Eagle", "lat": 25.1943, "lon": 56.2203, "speed": 10.3, "heading": 122, "ship_type": 74, "ship_type_name": "Cargo", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:29:29", "flag": "MH"}, {"mmsi": "612005439", "name": "Asian Pioneer", "lat": 25.1015, "lon": 56.3568, "speed": 0.0, "heading": 249, "ship_type": 86, "ship_type_name": "Tanker", "status": 5, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:46:29", "flag": "GR"}, {"mmsi": "400895568", "name": "Nordic Horizon", "lat": 25.2853, "lon": 56.2298, "speed": 2.7, "heading": 317, "ship_type": 51, "ship_type_name": "Other", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:46:29", "flag": "US"}, {"mmsi": "731469831", "name": "Asian Trader", "lat": 25.4042, "lon": 56.231, "speed": 13.7, "heading": 251, "ship_type": 83, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:34:29", "flag": "CY"}, {"mmsi": "235106082", "name": "Sea Voyager", "lat": 24.9067, "lon": 56.4163, "speed": 0.3, "heading": 275, "ship_type": 89, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:41:29", "flag": "MH"}, {"mmsi": "487643522", "name": "Eastern Spirit", "lat": 25.0747, "lon": 56.3424, "speed": 1.0, "heading": 277, "ship_type": 77, "ship_type_name": "Cargo", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:47:29", "flag": "US"}, {"mmsi": "465785059", "name": "Sea Star", "lat": 24.8925, "lon": 56.4268, "speed": 0.3, "heading": 230, "ship_type": 86, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:26:29", "flag": "MH"}, {"mmsi": "576486996", "name": "Grand Promise", "lat": 25.1761, "lon": 56.2088, "speed": 7.1, "heading": 323, "ship_type": 81, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:25:29", "flag": "CY"}, {"mmsi": "501812742", "name": "Western Victory", "lat": 25.1643, "lon": 56.3729, "speed": 10.1, "heading": 86, "ship_type": 83, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:33:29", "flag": "BS"}, {"mmsi": "345587477", "name": "Asian Star", "lat": 25.0424, "lon": 56.6736, "speed": 11.1, "heading": 141, "ship_type": 78, "ship_type_name": "Cargo", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:47:29", "flag": "GR"}, {"mmsi": "621659217", "name": "Gulf Pioneer", "lat": 25.157, "lon": 56.2912, "speed": 11.9, "heading": 295, "ship_type": 85, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:29:29", "flag": "GR"}, {"mmsi": "498742558", "name": "Grand Spirit", "lat": 25.0519, "lon": 56.3768, "speed": 0.0, "heading": 232, "ship_type": 81, "ship_type_name": "Tanker", "status": 5, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:27:29", "flag": "SG"}, {"mmsi": "584638726", "name": "Atlantic Victory", "lat": 25.2379, "lon": 56.3279, "speed": 9.1, "heading": 203, "ship_type": 71, "ship_type_name": "Cargo", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:29:29", "flag": "PA"}, {"mmsi": "340224505", "name": "Western Horizon", "lat": 25.275, "lon": 56.0083, "speed": 8.0, "heading": 175, "ship_type": 85, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:32:29", "flag": "GR"}, {"mmsi": "673827182", "name": "Gulf Star", "lat": 25.3724, "lon": 56.4059, "speed": 0.4, "heading": 219, "ship_type": 77, "ship_type_name": "Cargo", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:45:29", "flag": "PA"}, {"mmsi": "300223044", "name": "Royal Spirit", "lat": 25.4084, "lon": 56.1284, "speed": 0.4, "heading": 128, "ship_type": 52, "ship_type_name": "Other", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:42:29", "flag": "PH"}, {"mmsi": "451410032", "name": "Asian Trader", "lat": 25.2308, "lon": 56.2482, "speed": 3.8, "heading": 46, "ship_type": 86, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:26:29", "flag": "GB"}, {"mmsi": "208657116", "name": "Grand Spirit", "lat": 25.136, "lon": 56.3601, "speed": 0.3, "heading": 61, "ship_type": 89, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:50:29", "flag": "CY"}, {"mmsi": "594666352", "name": "Sea Pioneer", "lat": 24.8997, "lon": 56.3617, "speed": 5.9, "heading": 195, "ship_type": 81, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:40:29", "flag": "LR"}, {"mmsi": "577084942", "name": "Grand Voyager", "lat": 25.0343, "lon": 56.1141, "speed": 0.3, "heading": 321, "ship_type": 89, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:36:29", "flag": "GB"}, {"mmsi": "332239057", "name": "Western Pearl", "lat": 25.0859, "lon": 56.3554, "speed": 0.0, "heading": 196, "ship_type": 73, "ship_type_name": "Cargo", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:26:29", "flag": "BS"}, {"mmsi": "505931388", "name": "Grand Star", "lat": 25.0022, "lon": 56.6519, "speed": 1.6, "heading": 337, "ship_type": 84, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:31:29", "flag": "MH"}, {"mmsi": "456990522", "name": "Gulf Fortune", "lat": 25.0752, "lon": 56.2789, "speed": 0.0, "heading": 57, "ship_type": 86, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:22:29", "flag": "PA"}, {"mmsi": "615364404", "name": "Western Fortune", "lat": 24.9904, "lon": 56.2236, "speed": 13.4, "heading": 187, "ship_type": 80, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:46:29", "flag": "HK"}, {"mmsi": "431652222", "name": "Pacific Star", "lat": 25.147, "lon": 56.0754, "speed": 0.0, "heading": 203, "ship_type": 50, "ship_type_name": "Other", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:42:29", "flag": "HK"}, {"mmsi": "777303044", "name": "Western Pioneer", "lat": 25.1066, "lon": 56.2234, "speed": 5.7, "heading": 142, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:33:29", "flag": "PH"}, {"mmsi": "270990535", "name": "Sea Pearl", "lat": 25.0258, "lon": 56.3179, "speed": 2.3, "heading": 223, "ship_type": 82, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:30:29", "flag": "GB"}, {"mmsi": "532097676", "name": "Royal Pearl", "lat": 25.1515, "lon": 56.6761, "speed": 0.2, "heading": 336, "ship_type": 86, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:49:29", "flag": "GB"}, {"mmsi": "755363795", "name": "Grand Express", "lat": 25.1872, "lon": 56.3311, "speed": 0.4, "heading": 85, "ship_type": 80, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:34:29", "flag": "BS"}, {"mmsi": "660983746", "name": "Sea Victory", "lat": 25.137, "lon": 56.2802, "speed": 5.3, "heading": 32, "ship_type": 81, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:25:29", "flag": "MH"}, {"mmsi": "379187532", "name": "Nordic Pioneer", "lat": 24.9184, "lon": 56.2045, "speed": 0.7, "heading": 130, "ship_type": 87, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:23:29", "flag": "PH"}, {"mmsi": "462585121", "name": "Pacific Horizon", "lat": 24.992, "lon": 56.0335, "speed": 0.3, "heading": 186, "ship_type": 88, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:50:29", "flag": "CY"}, {"mmsi": "650294365", "name": "Ocean Spirit", "lat": 25.2612, "lon": 56.6316, "speed": 4.6, "heading": 127, "ship_type": 50, "ship_type_name": "Other", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:27:29", "flag": "CY"}, {"mmsi": "256556289", "name": "Global Voyager", "lat": 24.9989, "lon": 56.6312, "speed": 0.0, "heading": 264, "ship_type": 90, "ship_type_name": "Other", "status": 5, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:34:29", "flag": "US"}, {"mmsi": "793877361", "name": "Gulf Star", "lat": 25.4175, "lon": 56.4734, "speed": 7.8, "heading": 188, "ship_type": 84, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:48:29", "flag": "PA"}, {"mmsi": "409833231", "name": "Grand Victory", "lat": 25.1497, "lon": 56.2212, "speed": 3.2, "heading": 125, "ship_type": 73, "ship_type_name": "Cargo", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:35:29", "flag": "LR"}, {"mmsi": "559722166", "name": "Pacific Trader", "lat": 25.127, "lon": 56.3273, "speed": 3.6, "heading": 192, "ship_type": 85, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:50:29", "flag": "GB"}, {"mmsi": "352872361", "name": "Grand Express", "lat": 25.3213, "lon": 56.4887, "speed": 0.0, "heading": 47, "ship_type": 83, "ship_type_name": "Tanker", "status": 5, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:49:29", "flag": "US"}, {"mmsi": "302625025", "name": "Eastern Pioneer", "lat": 25.3741, "lon": 56.122, "speed": 3.9, "heading": 326, "ship_type": 85, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:32:29", "flag": "CY"}, {"mmsi": "621929719", "name": "Grand Pearl", "lat": 25.1061, "lon": 56.3146, "speed": 0.1, "heading": 167, "ship_type": 82, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:40:29", "flag": "BS"}, {"mmsi": "313449146", "name": "Global Horizon", "lat": 25.1443, "lon": 56.4918, "speed": 10.3, "heading": 238, "ship_type": 51, "ship_type_name": "Other", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:46:29", "flag": "BS"}, {"mmsi": "328756206", "name": "Atlantic Pioneer", "lat": 24.9967, "lon": 56.2925, "speed": 2.6, "heading": 351, "ship_type": 51, "ship_type_name": "Other", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:23:29", "flag": "MH"}, {"mmsi": "625464250", "name": "Eastern Star", "lat": 25.0386, "lon": 56.0385, "speed": 0.3, "heading": 346, "ship_type": 85, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:39:29", "flag": "MH"}, {"mmsi": "468277223", "name": "Atlantic Horizon", "lat": 25.2154, "lon": 56.3204, "speed": 10.0, "heading": 52, "ship_type": 86, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:33:29", "flag": "LR"}, {"mmsi": "290236646", "name": "Western Promise", "lat": 25.1663, "lon": 56.3429, "speed": 0.3, "heading": 132, "ship_type": 73, "ship_type_name": "Cargo", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:39:29", "flag": "PH"}, {"mmsi": "555998988", "name": "Atlantic Star", "lat": 25.1355, "lon": 56.3292, "speed": 5.8, "heading": 236, "ship_type": 60, "ship_type_name": "Other", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:23:29", "flag": "US"}, {"mmsi": "385550328", "name": "Nordic Voyager", "lat": 25.0787, "lon": 56.2983, "speed": 2.2, "heading": 95, "ship_type": 60, "ship_type_name": "Other", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:37:29", "flag": "MH"}, {"mmsi": "642373256", "name": "Eastern Horizon", "lat": 25.1982, "lon": 56.2571, "speed": 3.4, "heading": 31, "ship_type": 89, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:35:29", "flag": "PH"}, {"mmsi": "220970156", "name": "Asian Pearl", "lat": 25.1895, "lon": 56.4042, "speed": 0.4, "heading": 183, "ship_type": 88, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:33:29", "flag": "SG"}, {"mmsi": "542392183", "name": "Western Voyager", "lat": 24.9481, "lon": 56.3453, "speed": 0.1, "heading": 15, "ship_type": 90, "ship_type_name": "Other", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:50:29", "flag": "MH"}, {"mmsi": "466134484", "name": "Royal Voyager", "lat": 25.1483, "lon": 56.3249, "speed": 13.8, "heading": 136, "ship_type": 89, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:47:29", "flag": "HK"}, {"mmsi": "580968571", "name": "Global Pioneer", "lat": 25.3649, "lon": 56.1767, "speed": 4.9, "heading": 121, "ship_type": 83, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:38:29", "flag": "NO"}, {"mmsi": "352581172", "name": "Western Voyager", "lat": 25.1209, "lon": 56.2092, "speed": 0.3, "heading": 252, "ship_type": 89, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:32:29", "flag": "HK"}, {"mmsi": "200733897", "name": "Nordic Promise", "lat": 25.026, "lon": 56.3328, "speed": 0.6, "heading": 103, "ship_type": 83, "ship_type_name": "Tanker", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:35:29", "flag": "LR"}, {"mmsi": "352098390", "name": "Atlantic Victory", "lat": 25.1788, "lon": 56.4387, "speed": 0.1, "heading": 186, "ship_type": 52, "ship_type_name": "Other", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:28:29", "flag": "PH"}, {"mmsi": "669083854", "name": "Royal Horizon", "lat": 25.2451, "lon": 56.2769, "speed": 0.1, "heading": 332, "ship_type": 81, "ship_type_name": "Tanker", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:45:29", "flag": "BS"}, {"mmsi": "388282376", "name": "Asian Express", "lat": 25.1858, "lon": 56.3135, "speed": 7.0, "heading": 352, "ship_type": 79, "ship_type_name": "Cargo", "status": 0, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:32:29", "flag": "MH"}, {"mmsi": "234770706", "name": "Global Promise", "lat": 25.1232, "lon": 56.2795, "speed": 0.0, "heading": 162, "ship_type": 90, "ship_type_name": "Other", "status": 5, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:26:29", "flag": "NO"}, {"mmsi": "543080569", "name": "Global Trader", "lat": 25.0613, "lon": 56.2934, "speed": 0.0, "heading": 45, "ship_type": 51, "ship_type_name": "Other", "status": 1, "destination": "FUJAIRAH", "timestamp": "2026-04-30 07:39:29", "flag": "GB"}]}, {"port": "Los Angeles", "timestamp": "2026-04-30T07:51:29.954676+00:00", "total_vessels": 52, "waiting_vessels": 17, "tankers_waiting": 2, "cargo_waiting": 10, "avg_speed_knots": 4.98, "congestion_index": 23.7, "signal": "LOW", "commodity": "Container", "lat": 33.7395, "lon": -118.265, "vessels": [{"mmsi": "316001265", "name": "Grand Star", "lat": 33.7182, "lon": -117.9977, "speed": 0.0, "heading": 24, "ship_type": 71, "ship_type_name": "Cargo", "status": 5, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:25:29", "flag": "CY"}, {"mmsi": "603026384", "name": "Atlantic Horizon", "lat": 33.5477, "lon": -118.1376, "speed": 2.2, "heading": 295, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:33:29", "flag": "GR"}, {"mmsi": "279672074", "name": "Nordic Pioneer", "lat": 33.7974, "lon": -117.8144, "speed": 0.1, "heading": 192, "ship_type": 70, "ship_type_name": "Cargo", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:47:29", "flag": "LR"}, {"mmsi": "718334675", "name": "Grand Star", "lat": 33.3894, "lon": -118.3932, "speed": 0.4, "heading": 220, "ship_type": 50, "ship_type_name": "Other", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:22:29", "flag": "GR"}, {"mmsi": "794973692", "name": "Grand Pearl", "lat": 33.803, "lon": -118.3284, "speed": 0.4, "heading": 276, "ship_type": 71, "ship_type_name": "Cargo", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:37:29", "flag": "MH"}, {"mmsi": "258524142", "name": "Nordic Star", "lat": 33.6426, "lon": -117.8853, "speed": 4.3, "heading": 218, "ship_type": 86, "ship_type_name": "Tanker", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:46:29", "flag": "PH"}, {"mmsi": "513330168", "name": "Atlantic Horizon", "lat": 33.6622, "lon": -118.4157, "speed": 0.1, "heading": 59, "ship_type": 73, "ship_type_name": "Cargo", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:30:29", "flag": "MH"}, {"mmsi": "598380251", "name": "Asian Spirit", "lat": 33.3536, "lon": -118.1793, "speed": 0.2, "heading": 95, "ship_type": 52, "ship_type_name": "Other", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:45:29", "flag": "SG"}, {"mmsi": "303833652", "name": "Atlantic Trader", "lat": 33.7188, "lon": -118.2551, "speed": 1.2, "heading": 176, "ship_type": 74, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:28:29", "flag": "HK"}, {"mmsi": "775004218", "name": "Royal Horizon", "lat": 33.7479, "lon": -118.5137, "speed": 12.4, "heading": 293, "ship_type": 70, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:37:29", "flag": "PA"}, {"mmsi": "358320719", "name": "Atlantic Horizon", "lat": 33.9489, "lon": -118.1287, "speed": 4.6, "heading": 88, "ship_type": 50, "ship_type_name": "Other", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:25:29", "flag": "LR"}, {"mmsi": "358783057", "name": "Western Express", "lat": 33.9141, "lon": -118.8105, "speed": 0.3, "heading": 163, "ship_type": 86, "ship_type_name": "Tanker", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:44:29", "flag": "GB"}, {"mmsi": "691942526", "name": "Pacific Pearl", "lat": 34.1567, "lon": -118.0403, "speed": 4.4, "heading": 319, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:34:29", "flag": "NO"}, {"mmsi": "313424523", "name": "Western Eagle", "lat": 33.5109, "lon": -118.1129, "speed": 3.1, "heading": 146, "ship_type": 72, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:47:29", "flag": "HK"}, {"mmsi": "495723682", "name": "Asian Pioneer", "lat": 34.0563, "lon": -118.6323, "speed": 2.6, "heading": 316, "ship_type": 77, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:45:29", "flag": "NO"}, {"mmsi": "488390253", "name": "Nordic Star", "lat": 33.462, "lon": -118.028, "speed": 5.4, "heading": 172, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:35:29", "flag": "MH"}, {"mmsi": "675786397", "name": "Nordic Express", "lat": 33.8251, "lon": -118.421, "speed": 7.1, "heading": 213, "ship_type": 50, "ship_type_name": "Other", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:41:29", "flag": "NO"}, {"mmsi": "601483027", "name": "Pacific Victory", "lat": 33.8622, "lon": -117.906, "speed": 11.8, "heading": 81, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:23:29", "flag": "PH"}, {"mmsi": "415528733", "name": "Pacific Voyager", "lat": 33.5841, "lon": -118.273, "speed": 5.3, "heading": 16, "ship_type": 88, "ship_type_name": "Tanker", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:44:29", "flag": "SG"}, {"mmsi": "333007467", "name": "Royal Star", "lat": 33.7233, "lon": -118.2416, "speed": 9.5, "heading": 123, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:30:29", "flag": "BS"}, {"mmsi": "477733976", "name": "Grand Pearl", "lat": 33.509, "lon": -118.1674, "speed": 2.1, "heading": 46, "ship_type": 60, "ship_type_name": "Other", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:45:29", "flag": "MH"}, {"mmsi": "421975705", "name": "Sea Trader", "lat": 33.7526, "lon": -118.2599, "speed": 10.8, "heading": 209, "ship_type": 51, "ship_type_name": "Other", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:29:29", "flag": "HK"}, {"mmsi": "209087862", "name": "Ocean Express", "lat": 33.7414, "lon": -118.2768, "speed": 1.1, "heading": 311, "ship_type": 70, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:45:29", "flag": "MH"}, {"mmsi": "701113183", "name": "Sea Trader", "lat": 33.6495, "lon": -118.6797, "speed": 9.1, "heading": 266, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:44:29", "flag": "NO"}, {"mmsi": "520486085", "name": "Royal Eagle", "lat": 33.8984, "lon": -118.1218, "speed": 3.2, "heading": 246, "ship_type": 75, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:41:29", "flag": "PH"}, {"mmsi": "520824516", "name": "Ocean Pioneer", "lat": 33.7117, "lon": -118.0656, "speed": 0.3, "heading": 264, "ship_type": 74, "ship_type_name": "Cargo", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:22:29", "flag": "PA"}, {"mmsi": "350248163", "name": "Grand Star", "lat": 33.893, "lon": -118.7735, "speed": 0.0, "heading": 335, "ship_type": 90, "ship_type_name": "Other", "status": 5, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:40:29", "flag": "SG"}, {"mmsi": "403919854", "name": "Nordic Pearl", "lat": 33.71, "lon": -117.6663, "speed": 10.2, "heading": 113, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:32:29", "flag": "GR"}, {"mmsi": "799414278", "name": "Global Express", "lat": 33.7976, "lon": -118.5788, "speed": 4.3, "heading": 49, "ship_type": 52, "ship_type_name": "Other", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:24:29", "flag": "SG"}, {"mmsi": "295884955", "name": "Ocean Spirit", "lat": 33.736, "lon": -118.1882, "speed": 13.1, "heading": 114, "ship_type": 51, "ship_type_name": "Other", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:30:29", "flag": "GB"}, {"mmsi": "326466892", "name": "Gulf Star", "lat": 33.3571, "lon": -118.0139, "speed": 0.1, "heading": 324, "ship_type": 52, "ship_type_name": "Other", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:23:29", "flag": "NO"}, {"mmsi": "768909764", "name": "Sea Fortune", "lat": 33.5288, "lon": -118.5049, "speed": 4.4, "heading": 27, "ship_type": 73, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:38:29", "flag": "LR"}, {"mmsi": "539714150", "name": "Grand Pioneer", "lat": 33.7606, "lon": -118.1864, "speed": 13.9, "heading": 41, "ship_type": 79, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:46:29", "flag": "SG"}, {"mmsi": "381039053", "name": "Western Pioneer", "lat": 33.9052, "lon": -118.2818, "speed": 0.1, "heading": 250, "ship_type": 70, "ship_type_name": "Cargo", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:26:29", "flag": "PH"}, {"mmsi": "773144707", "name": "Ocean Pearl", "lat": 33.6803, "lon": -118.2335, "speed": 8.4, "heading": 191, "ship_type": 76, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:49:29", "flag": "US"}, {"mmsi": "442950952", "name": "Grand Spirit", "lat": 33.7587, "lon": -118.8008, "speed": 10.6, "heading": 159, "ship_type": 70, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:43:29", "flag": "LR"}, {"mmsi": "689547144", "name": "Grand Victory", "lat": 33.6882, "lon": -118.2663, "speed": 7.7, "heading": 305, "ship_type": 71, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:41:29", "flag": "HK"}, {"mmsi": "402320914", "name": "Global Fortune", "lat": 33.8683, "lon": -118.3965, "speed": 9.4, "heading": 9, "ship_type": 52, "ship_type_name": "Other", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:26:29", "flag": "PA"}, {"mmsi": "240118673", "name": "Asian Trader", "lat": 33.8512, "lon": -118.2778, "speed": 1.3, "heading": 130, "ship_type": 70, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:39:29", "flag": "HK"}, {"mmsi": "324328383", "name": "Asian Horizon", "lat": 33.4806, "lon": -118.4735, "speed": 5.2, "heading": 194, "ship_type": 81, "ship_type_name": "Tanker", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:28:29", "flag": "PH"}, {"mmsi": "758677789", "name": "Sea Promise", "lat": 33.4694, "lon": -118.2123, "speed": 0.3, "heading": 310, "ship_type": 70, "ship_type_name": "Cargo", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:29:29", "flag": "GB"}, {"mmsi": "734443249", "name": "Ocean Promise", "lat": 33.7728, "lon": -118.3371, "speed": 0.0, "heading": 102, "ship_type": 89, "ship_type_name": "Tanker", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:47:29", "flag": "MH"}, {"mmsi": "423009714", "name": "Grand Horizon", "lat": 34.1493, "lon": -118.349, "speed": 0.0, "heading": 169, "ship_type": 76, "ship_type_name": "Cargo", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:35:29", "flag": "PA"}, {"mmsi": "749439435", "name": "Atlantic Pearl", "lat": 33.7389, "lon": -118.2665, "speed": 6.3, "heading": 51, "ship_type": 90, "ship_type_name": "Other", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:48:29", "flag": "MH"}, {"mmsi": "242353230", "name": "Sea Spirit", "lat": 33.4292, "lon": -118.161, "speed": 0.9, "heading": 346, "ship_type": 52, "ship_type_name": "Other", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:45:29", "flag": "BS"}, {"mmsi": "383086166", "name": "Nordic Spirit", "lat": 33.8985, "lon": -118.0945, "speed": 0.1, "heading": 224, "ship_type": 50, "ship_type_name": "Other", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:30:29", "flag": "NO"}, {"mmsi": "491878557", "name": "Asian Pearl", "lat": 33.7253, "lon": -118.4254, "speed": 0.2, "heading": 244, "ship_type": 75, "ship_type_name": "Cargo", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:36:29", "flag": "CY"}, {"mmsi": "646706352", "name": "Western Horizon", "lat": 33.8337, "lon": -118.6383, "speed": 12.6, "heading": 291, "ship_type": 80, "ship_type_name": "Tanker", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:47:29", "flag": "GR"}, {"mmsi": "340290090", "name": "Gulf Horizon", "lat": 33.5719, "lon": -118.4346, "speed": 0.3, "heading": 57, "ship_type": 79, "ship_type_name": "Cargo", "status": 1, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:24:29", "flag": "CY"}, {"mmsi": "440501969", "name": "Royal Spirit", "lat": 33.9426, "lon": -118.1623, "speed": 11.1, "heading": 265, "ship_type": 70, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:26:29", "flag": "HK"}, {"mmsi": "613258121", "name": "Global Victory", "lat": 33.4861, "lon": -118.5449, "speed": 3.5, "heading": 313, "ship_type": 73, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:30:29", "flag": "US"}, {"mmsi": "727902980", "name": "Nordic Voyager", "lat": 33.7448, "lon": -118.2678, "speed": 12.8, "heading": 169, "ship_type": 77, "ship_type_name": "Cargo", "status": 0, "destination": "LOS ANGELES", "timestamp": "2026-04-30 07:48:29", "flag": "MH"}]}];
+const HIST  = {"Houston": [{"date": "2026-03-31", "congestion_index": 72.0}, {"date": "2026-04-01", "congestion_index": 63.8}, {"date": "2026-04-02", "congestion_index": 64.4}, {"date": "2026-04-03", "congestion_index": 66.5}, {"date": "2026-04-04", "congestion_index": 57.2}, {"date": "2026-04-05", "congestion_index": 48.8}, {"date": "2026-04-06", "congestion_index": 65.9}, {"date": "2026-04-07", "congestion_index": 68.8}, {"date": "2026-04-08", "congestion_index": 80.2}, {"date": "2026-04-09", "congestion_index": 64.8}, {"date": "2026-04-10", "congestion_index": 58.2}, {"date": "2026-04-11", "congestion_index": 67.5}, {"date": "2026-04-12", "congestion_index": 37.8}, {"date": "2026-04-13", "congestion_index": 64.1}, {"date": "2026-04-14", "congestion_index": 58.9}, {"date": "2026-04-15", "congestion_index": 62.6}, {"date": "2026-04-16", "congestion_index": 62.0}, {"date": "2026-04-17", "congestion_index": 64.6}, {"date": "2026-04-18", "congestion_index": 45.8}, {"date": "2026-04-19", "congestion_index": 52.9}, {"date": "2026-04-20", "congestion_index": 69.1}, {"date": "2026-04-21", "congestion_index": 68.5}, {"date": "2026-04-22", "congestion_index": 57.5}, {"date": "2026-04-23", "congestion_index": 56.1}, {"date": "2026-04-24", "congestion_index": 57.6}, {"date": "2026-04-25", "congestion_index": 50.6}, {"date": "2026-04-26", "congestion_index": 59.5}, {"date": "2026-04-27", "congestion_index": 71.1}, {"date": "2026-04-28", "congestion_index": 65.2}, {"date": "2026-04-29", "congestion_index": 64.7}], "Rotterdam": [{"date": "2026-03-31", "congestion_index": 42.8}, {"date": "2026-04-01", "congestion_index": 66.1}, {"date": "2026-04-02", "congestion_index": 48.6}, {"date": "2026-04-03", "congestion_index": 61.6}, {"date": "2026-04-04", "congestion_index": 43.6}, {"date": "2026-04-05", "congestion_index": 47.4}, {"date": "2026-04-06", "congestion_index": 50.7}, {"date": "2026-04-07", "congestion_index": 56.5}, {"date": "2026-04-08", "congestion_index": 50.0}, {"date": "2026-04-09", "congestion_index": 58.8}, {"date": "2026-04-10", "congestion_index": 53.2}, {"date": "2026-04-11", "congestion_index": 35.3}, {"date": "2026-04-12", "congestion_index": 45.3}, {"date": "2026-04-13", "congestion_index": 65.2}, {"date": "2026-04-14", "congestion_index": 55.7}, {"date": "2026-04-15", "congestion_index": 52.7}, {"date": "2026-04-16", "congestion_index": 67.7}, {"date": "2026-04-17", "congestion_index": 57.5}, {"date": "2026-04-18", "congestion_index": 57.4}, {"date": "2026-04-19", "congestion_index": 44.4}, {"date": "2026-04-20", "congestion_index": 72.3}, {"date": "2026-04-21", "congestion_index": 64.6}, {"date": "2026-04-22", "congestion_index": 54.4}, {"date": "2026-04-23", "congestion_index": 63.6}, {"date": "2026-04-24", "congestion_index": 44.5}, {"date": "2026-04-25", "congestion_index": 42.7}, {"date": "2026-04-26", "congestion_index": 48.1}, {"date": "2026-04-27", "congestion_index": 45.8}, {"date": "2026-04-28", "congestion_index": 50.6}, {"date": "2026-04-29", "congestion_index": 57.6}], "Singapore": [{"date": "2026-03-31", "congestion_index": 62.6}, {"date": "2026-04-01", "congestion_index": 61.7}, {"date": "2026-04-02", "congestion_index": 71.0}, {"date": "2026-04-03", "congestion_index": 70.7}, {"date": "2026-04-04", "congestion_index": 56.6}, {"date": "2026-04-05", "congestion_index": 62.9}, {"date": "2026-04-06", "congestion_index": 79.5}, {"date": "2026-04-07", "congestion_index": 66.1}, {"date": "2026-04-08", "congestion_index": 67.3}, {"date": "2026-04-09", "congestion_index": 64.2}, {"date": "2026-04-10", "congestion_index": 67.2}, {"date": "2026-04-11", "congestion_index": 63.5}, {"date": "2026-04-12", "congestion_index": 58.1}, {"date": "2026-04-13", "congestion_index": 64.1}, {"date": "2026-04-14", "congestion_index": 74.5}, {"date": "2026-04-15", "congestion_index": 71.7}, {"date": "2026-04-16", "congestion_index": 81.4}, {"date": "2026-04-17", "congestion_index": 65.2}, {"date": "2026-04-18", "congestion_index": 69.4}, {"date": "2026-04-19", "congestion_index": 68.7}, {"date": "2026-04-20", "congestion_index": 59.6}, {"date": "2026-04-21", "congestion_index": 68.9}, {"date": "2026-04-22", "congestion_index": 79.4}, {"date": "2026-04-23", "congestion_index": 84.9}, {"date": "2026-04-24", "congestion_index": 72.4}, {"date": "2026-04-25", "congestion_index": 70.8}, {"date": "2026-04-26", "congestion_index": 42.9}, {"date": "2026-04-27", "congestion_index": 65.2}, {"date": "2026-04-28", "congestion_index": 82.8}, {"date": "2026-04-29", "congestion_index": 71.2}], "Qingdao": [{"date": "2026-03-31", "congestion_index": 50.0}, {"date": "2026-04-01", "congestion_index": 32.8}, {"date": "2026-04-02", "congestion_index": 57.4}, {"date": "2026-04-03", "congestion_index": 54.6}, {"date": "2026-04-04", "congestion_index": 27.9}, {"date": "2026-04-05", "congestion_index": 29.8}, {"date": "2026-04-06", "congestion_index": 41.1}, {"date": "2026-04-07", "congestion_index": 42.7}, {"date": "2026-04-08", "congestion_index": 41.3}, {"date": "2026-04-09", "congestion_index": 49.8}, {"date": "2026-04-10", "congestion_index": 32.7}, {"date": "2026-04-11", "congestion_index": 38.6}, {"date": "2026-04-12", "congestion_index": 44.5}, {"date": "2026-04-13", "congestion_index": 45.6}, {"date": "2026-04-14", "congestion_index": 43.5}, {"date": "2026-04-15", "congestion_index": 58.4}, {"date": "2026-04-16", "congestion_index": 51.9}, {"date": "2026-04-17", "congestion_index": 61.6}, {"date": "2026-04-18", "congestion_index": 22.9}, {"date": "2026-04-19", "congestion_index": 24.9}, {"date": "2026-04-20", "congestion_index": 43.3}, {"date": "2026-04-21", "congestion_index": 59.9}, {"date": "2026-04-22", "congestion_index": 52.4}, {"date": "2026-04-23", "congestion_index": 48.4}, {"date": "2026-04-24", "congestion_index": 47.9}, {"date": "2026-04-25", "congestion_index": 49.3}, {"date": "2026-04-26", "congestion_index": 37.4}, {"date": "2026-04-27", "congestion_index": 52.7}, {"date": "2026-04-28", "congestion_index": 39.2}, {"date": "2026-04-29", "congestion_index": 46.3}], "Fujairah": [{"date": "2026-03-31", "congestion_index": 51.5}, {"date": "2026-04-01", "congestion_index": 61.9}, {"date": "2026-04-02", "congestion_index": 72.6}, {"date": "2026-04-03", "congestion_index": 49.0}, {"date": "2026-04-04", "congestion_index": 57.2}, {"date": "2026-04-05", "congestion_index": 39.6}, {"date": "2026-04-06", "congestion_index": 59.2}, {"date": "2026-04-07", "congestion_index": 74.3}, {"date": "2026-04-08", "congestion_index": 53.5}, {"date": "2026-04-09", "congestion_index": 56.3}, {"date": "2026-04-10", "congestion_index": 58.6}, {"date": "2026-04-11", "congestion_index": 50.0}, {"date": "2026-04-12", "congestion_index": 50.4}, {"date": "2026-04-13", "congestion_index": 61.4}, {"date": "2026-04-14", "congestion_index": 56.6}, {"date": "2026-04-15", "congestion_index": 64.8}, {"date": "2026-04-16", "congestion_index": 59.3}, {"date": "2026-04-17", "congestion_index": 61.2}, {"date": "2026-04-18", "congestion_index": 40.4}, {"date": "2026-04-19", "congestion_index": 60.7}, {"date": "2026-04-20", "congestion_index": 55.7}, {"date": "2026-04-21", "congestion_index": 56.0}, {"date": "2026-04-22", "congestion_index": 45.9}, {"date": "2026-04-23", "congestion_index": 61.5}, {"date": "2026-04-24", "congestion_index": 64.7}, {"date": "2026-04-25", "congestion_index": 46.9}, {"date": "2026-04-26", "congestion_index": 39.2}, {"date": "2026-04-27", "congestion_index": 66.3}, {"date": "2026-04-28", "congestion_index": 62.1}, {"date": "2026-04-29", "congestion_index": 66.4}], "Los Angeles": [{"date": "2026-03-31", "congestion_index": 42.9}, {"date": "2026-04-01", "congestion_index": 48.8}, {"date": "2026-04-02", "congestion_index": 48.3}, {"date": "2026-04-03", "congestion_index": 39.1}, {"date": "2026-04-04", "congestion_index": 30.6}, {"date": "2026-04-05", "congestion_index": 31.7}, {"date": "2026-04-06", "congestion_index": 51.9}, {"date": "2026-04-07", "congestion_index": 38.7}, {"date": "2026-04-08", "congestion_index": 54.6}, {"date": "2026-04-09", "congestion_index": 45.7}, {"date": "2026-04-10", "congestion_index": 42.2}, {"date": "2026-04-11", "congestion_index": 46.5}, {"date": "2026-04-12", "congestion_index": 38.1}, {"date": "2026-04-13", "congestion_index": 36.4}, {"date": "2026-04-14", "congestion_index": 57.2}, {"date": "2026-04-15", "congestion_index": 37.3}, {"date": "2026-04-16", "congestion_index": 53.8}, {"date": "2026-04-17", "congestion_index": 57.0}, {"date": "2026-04-18", "congestion_index": 33.2}, {"date": "2026-04-19", "congestion_index": 33.1}, {"date": "2026-04-20", "congestion_index": 33.3}, {"date": "2026-04-21", "congestion_index": 41.5}, {"date": "2026-04-22", "congestion_index": 52.4}, {"date": "2026-04-23", "congestion_index": 31.6}, {"date": "2026-04-24", "congestion_index": 42.6}, {"date": "2026-04-25", "congestion_index": 29.4}, {"date": "2026-04-26", "congestion_index": 25.5}, {"date": "2026-04-27", "congestion_index": 43.4}, {"date": "2026-04-28", "congestion_index": 48.7}, {"date": "2026-04-29", "congestion_index": 31.9}]};
+const ALPHA = {"commodities": {"dates": ["2026-03-31", "2026-04-01", "2026-04-02", "2026-04-03", "2026-04-04", "2026-04-05", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-10", "2026-04-11", "2026-04-12", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-16", "2026-04-17", "2026-04-18", "2026-04-19", "2026-04-20", "2026-04-21", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-25", "2026-04-26", "2026-04-27", "2026-04-28", "2026-04-29"], "crude_oil": {"prices": [82.5, 81.08, 80.41, 79.54, 79.08, 80.11, 77.63, 77.16, 76.49, 75.27, 75.11, 75.11, 78.45, 78.88, 78.87, 80.1, 78.59, 77.74, 78.51, 77.8, 76.42, 75.63, 73.79, 75.31, 77.03, 80.67, 80.25, 79.92, 79.64, 80.41], "symbol": "WTI Crude", "unit": "$/bbl", "current": 80.41, "change_pct": 0.97}, "iron_ore": {"prices": [104.2, 107.09, 105.09, 105.61, 100.6, 100.41, 103.54, 107.36, 104.67, 103.41, 102.8, 96.67, 100.25, 101.79, 102.98, 105.33, 104.55, 105.07, 107.02, 108.81, 107.63, 104.64, 106.07, 107.0, 104.43, 107.04, 108.55, 109.59, 109.83, 111.19], "symbol": "Iron Ore", "unit": "$/ton", "current": 111.19, "change_pct": 1.24}, "bdi": {"prices": [1850, 1798.1, 1785.46, 1874.84, 1892.77, 1905.47, 1955.29, 1877.01, 1933.66, 2008.78, 2003.28, 2222.65, 2212.68, 2214.06, 2244.12, 2325.03, 2456.95, 2301.24, 2195.9, 2306.23, 2285.76, 2256.55, 2250.07, 2390.98, 2413.26, 2345.77, 2222.86, 2116.16, 2071.71, 1972.6], "symbol": "Baltic Dry Index", "unit": "pts", "current": 1972.6, "change_pct": -4.78}, "nat_gas": {"prices": [2.14, 2.02, 2.05, 2.1, 2.11, 2.19, 2.17, 2.21, 2.25, 2.3, 2.25, 2.38, 2.41, 2.48, 2.55, 2.49, 2.44, 2.48, 2.47, 2.44, 2.42, 2.46, 2.45, 2.32, 2.31, 2.33, 2.31, 2.4, 2.31, 2.27], "symbol": "Nat Gas", "unit": "$/mmBtu", "current": 2.27, "change_pct": -1.73}}, "correlations": {"Houston": {"crude_lag7": -0.043, "bdi_lag7": -0.231, "description": "7-day lag correlation: congestion \u2192 price move"}, "Rotterdam": {"crude_lag7": -0.038, "bdi_lag7": 0.035, "description": "7-day lag correlation: congestion \u2192 price move"}, "Singapore": {"crude_lag7": -0.032, "bdi_lag7": 0.013, "description": "7-day lag correlation: congestion \u2192 price move"}, "Qingdao": {"crude_lag7": -0.35, "bdi_lag7": -0.139, "description": "7-day lag correlation: congestion \u2192 price move"}, "Fujairah": {"crude_lag7": -0.382, "bdi_lag7": 0.035, "description": "7-day lag correlation: congestion \u2192 price move"}, "Los Angeles": {"crude_lag7": -0.093, "bdi_lag7": 0.05, "description": "7-day lag correlation: congestion \u2192 price move"}}, "backtest": [{"date": "2026-04-01", "signal": 1, "congestion": 61.8, "crude_price": 81.08, "daily_pnl": 0.724, "cum_pnl": 0.724}, {"date": "2026-04-02", "signal": 1, "congestion": 62.8, "crude_price": 80.41, "daily_pnl": -0.615, "cum_pnl": 0.108}, {"date": "2026-04-03", "signal": 1, "congestion": 68.5, "crude_price": 79.54, "daily_pnl": 0.533, "cum_pnl": 0.642}, {"date": "2026-04-04", "signal": 1, "congestion": 57.8, "crude_price": 79.08, "daily_pnl": 2.628, "cum_pnl": 3.269}, {"date": "2026-04-05", "signal": 1, "congestion": 57.2, "crude_price": 80.11, "daily_pnl": 1.423, "cum_pnl": 4.692}, {"date": "2026-04-06", "signal": 0, "congestion": 44.2, "crude_price": 77.63, "daily_pnl": 1.303, "cum_pnl": 5.995}, {"date": "2026-04-07", "signal": 1, "congestion": 62.6, "crude_price": 77.16, "daily_pnl": -1.142, "cum_pnl": 4.854}, {"date": "2026-04-08", "signal": 1, "congestion": 71.5, "crude_price": 76.49, "daily_pnl": -0.187, "cum_pnl": 4.667}, {"date": "2026-04-09", "signal": 1, "congestion": 66.8, "crude_price": 75.27, "daily_pnl": 1.434, "cum_pnl": 6.101}, {"date": "2026-04-10", "signal": 1, "congestion": 60.5, "crude_price": 75.11, "daily_pnl": 1.741, "cum_pnl": 7.842}, {"date": "2026-04-11", "signal": 1, "congestion": 58.4, "crude_price": 75.11, "daily_pnl": -1.942, "cum_pnl": 5.9}, {"date": "2026-04-12", "signal": 1, "congestion": 58.8, "crude_price": 78.45, "daily_pnl": 0.391, "cum_pnl": 6.291}, {"date": "2026-04-13", "signal": 0, "congestion": 44.1, "crude_price": 78.88, "daily_pnl": 3.365, "cum_pnl": 9.655}, {"date": "2026-04-14", "signal": 1, "congestion": 62.8, "crude_price": 78.87, "daily_pnl": 0.934, "cum_pnl": 10.589}, {"date": "2026-04-15", "signal": 1, "congestion": 57.8, "crude_price": 80.1, "daily_pnl": 1.427, "cum_pnl": 12.016}, {"date": "2026-04-16", "signal": 1, "congestion": 63.7, "crude_price": 78.59, "daily_pnl": 2.344, "cum_pnl": 14.36}, {"date": "2026-04-17", "signal": 1, "congestion": 60.6, "crude_price": 77.74, "daily_pnl": -1.878, "cum_pnl": 12.482}, {"date": "2026-04-18", "signal": 1, "congestion": 62.9, "crude_price": 78.51, "daily_pnl": 0.295, "cum_pnl": 12.777}, {"date": "2026-04-19", "signal": 0, "congestion": 43.1, "crude_price": 77.8, "daily_pnl": 0.833, "cum_pnl": 13.61}, {"date": "2026-04-20", "signal": 1, "congestion": 56.8, "crude_price": 76.42, "daily_pnl": 1.364, "cum_pnl": 14.974}, {"date": "2026-04-21", "signal": 1, "congestion": 62.4, "crude_price": 75.63, "daily_pnl": 2.179, "cum_pnl": 17.153}, {"date": "2026-04-22", "signal": 1, "congestion": 62.2, "crude_price": 73.79, "daily_pnl": 1.485, "cum_pnl": 18.639}, {"date": "2026-04-23", "signal": 1, "congestion": 51.7, "crude_price": 75.31, "daily_pnl": -0.394, "cum_pnl": 18.244}, {"date": "2026-04-24", "signal": 1, "congestion": 58.8, "crude_price": 77.03, "daily_pnl": 0.228, "cum_pnl": 18.472}, {"date": "2026-04-25", "signal": 1, "congestion": 61.2, "crude_price": 80.67, "daily_pnl": 0.577, "cum_pnl": 19.049}, {"date": "2026-04-26", "signal": 1, "congestion": 48.8, "crude_price": 80.25, "daily_pnl": 0.86, "cum_pnl": 19.909}, {"date": "2026-04-27", "signal": 1, "congestion": 49.4, "crude_price": 79.92, "daily_pnl": 0.874, "cum_pnl": 20.783}, {"date": "2026-04-28", "signal": 1, "congestion": 68.7, "crude_price": 79.64, "daily_pnl": 1.863, "cum_pnl": 22.646}, {"date": "2026-04-29", "signal": 1, "congestion": 63.7, "crude_price": 80.41, "daily_pnl": -1.331, "cum_pnl": 21.315}], "ml": {"r2": 0.31, "mae": 4.2, "direction_accuracy": 50.0, "n_samples": 22, "feature_importance": [{"feature": "Houston Congestion Index", "importance": 0.31}, {"feature": "Fujairah Tankers Waiting", "importance": 0.24}, {"feature": "Avg Fleet Speed (7d lag)", "importance": 0.18}, {"feature": "Singapore Congestion", "importance": 0.13}, {"feature": "Congestion \u0394 (week-on-week)", "importance": 0.09}, {"feature": "Rotterdam Cargo Count", "importance": 0.05}], "predictions": [{"date": "2026-04-08", "actual_change_pct": -5.661, "predicted_change_pct": 1.796, "congestion": 61.8, "signal": "LONG"}, {"date": "2026-04-09", "actual_change_pct": -6.392, "predicted_change_pct": 2.288, "congestion": 62.8, "signal": "LONG"}, {"date": "2026-04-10", "actual_change_pct": -5.57, "predicted_change_pct": 2.951, "congestion": 68.5, "signal": "LONG"}, {"date": "2026-04-11", "actual_change_pct": -5.02, "predicted_change_pct": 1.809, "congestion": 57.8, "signal": "LONG"}, {"date": "2026-04-12", "actual_change_pct": -2.072, "predicted_change_pct": 1.483, "congestion": 57.2, "signal": "LONG"}, {"date": "2026-04-13", "actual_change_pct": 1.61, "predicted_change_pct": -0.4, "congestion": 44.2, "signal": "SHORT"}, {"date": "2026-04-14", "actual_change_pct": 2.216, "predicted_change_pct": 1.661, "congestion": 62.6, "signal": "LONG"}, {"date": "2026-04-15", "actual_change_pct": 4.72, "predicted_change_pct": 3.587, "congestion": 71.5, "signal": "LONG"}, {"date": "2026-04-16", "actual_change_pct": 4.411, "predicted_change_pct": 1.699, "congestion": 66.8, "signal": "LONG"}, {"date": "2026-04-17", "actual_change_pct": 3.502, "predicted_change_pct": 1.633, "congestion": 60.5, "signal": "LONG"}, {"date": "2026-04-18", "actual_change_pct": 4.527, "predicted_change_pct": 1.19, "congestion": 58.4, "signal": "LONG"}, {"date": "2026-04-19", "actual_change_pct": -0.829, "predicted_change_pct": 1.684, "congestion": 58.8, "signal": "LONG"}, {"date": "2026-04-20", "actual_change_pct": -3.119, "predicted_change_pct": -0.32, "congestion": 44.1, "signal": "SHORT"}, {"date": "2026-04-21", "actual_change_pct": -4.108, "predicted_change_pct": 1.953, "congestion": 62.8, "signal": "LONG"}, {"date": "2026-04-22", "actual_change_pct": -7.878, "predicted_change_pct": 1.852, "congestion": 57.8, "signal": "LONG"}, {"date": "2026-04-23", "actual_change_pct": -4.174, "predicted_change_pct": 2.02, "congestion": 63.7, "signal": "LONG"}, {"date": "2026-04-24", "actual_change_pct": -0.913, "predicted_change_pct": 1.41, "congestion": 60.6, "signal": "LONG"}, {"date": "2026-04-25", "actual_change_pct": 2.751, "predicted_change_pct": 2.54, "congestion": 62.9, "signal": "LONG"}, {"date": "2026-04-26", "actual_change_pct": 3.149, "predicted_change_pct": 0.111, "congestion": 43.1, "signal": "FLAT"}, {"date": "2026-04-27", "actual_change_pct": 4.58, "predicted_change_pct": 1.897, "congestion": 56.8, "signal": "LONG"}, {"date": "2026-04-28", "actual_change_pct": 5.302, "predicted_change_pct": 2.302, "congestion": 62.4, "signal": "LONG"}, {"date": "2026-04-29", "actual_change_pct": 8.971, "predicted_change_pct": 1.77, "congestion": 62.2, "signal": "LONG"}]}};
+const ML_PREDS = [{"date": "2026-04-08", "actual_change_pct": -5.661, "predicted_change_pct": 1.796, "congestion": 61.8, "signal": "LONG"}, {"date": "2026-04-09", "actual_change_pct": -6.392, "predicted_change_pct": 2.288, "congestion": 62.8, "signal": "LONG"}, {"date": "2026-04-10", "actual_change_pct": -5.57, "predicted_change_pct": 2.951, "congestion": 68.5, "signal": "LONG"}, {"date": "2026-04-11", "actual_change_pct": -5.02, "predicted_change_pct": 1.809, "congestion": 57.8, "signal": "LONG"}, {"date": "2026-04-12", "actual_change_pct": -2.072, "predicted_change_pct": 1.483, "congestion": 57.2, "signal": "LONG"}, {"date": "2026-04-13", "actual_change_pct": 1.61, "predicted_change_pct": -0.4, "congestion": 44.2, "signal": "SHORT"}, {"date": "2026-04-14", "actual_change_pct": 2.216, "predicted_change_pct": 1.661, "congestion": 62.6, "signal": "LONG"}, {"date": "2026-04-15", "actual_change_pct": 4.72, "predicted_change_pct": 3.587, "congestion": 71.5, "signal": "LONG"}, {"date": "2026-04-16", "actual_change_pct": 4.411, "predicted_change_pct": 1.699, "congestion": 66.8, "signal": "LONG"}, {"date": "2026-04-17", "actual_change_pct": 3.502, "predicted_change_pct": 1.633, "congestion": 60.5, "signal": "LONG"}, {"date": "2026-04-18", "actual_change_pct": 4.527, "predicted_change_pct": 1.19, "congestion": 58.4, "signal": "LONG"}, {"date": "2026-04-19", "actual_change_pct": -0.829, "predicted_change_pct": 1.684, "congestion": 58.8, "signal": "LONG"}, {"date": "2026-04-20", "actual_change_pct": -3.119, "predicted_change_pct": -0.32, "congestion": 44.1, "signal": "SHORT"}, {"date": "2026-04-21", "actual_change_pct": -4.108, "predicted_change_pct": 1.953, "congestion": 62.8, "signal": "LONG"}, {"date": "2026-04-22", "actual_change_pct": -7.878, "predicted_change_pct": 1.852, "congestion": 57.8, "signal": "LONG"}, {"date": "2026-04-23", "actual_change_pct": -4.174, "predicted_change_pct": 2.02, "congestion": 63.7, "signal": "LONG"}, {"date": "2026-04-24", "actual_change_pct": -0.913, "predicted_change_pct": 1.41, "congestion": 60.6, "signal": "LONG"}, {"date": "2026-04-25", "actual_change_pct": 2.751, "predicted_change_pct": 2.54, "congestion": 62.9, "signal": "LONG"}, {"date": "2026-04-26", "actual_change_pct": 3.149, "predicted_change_pct": 0.111, "congestion": 43.1, "signal": "FLAT"}, {"date": "2026-04-27", "actual_change_pct": 4.58, "predicted_change_pct": 1.897, "congestion": 56.8, "signal": "LONG"}, {"date": "2026-04-28", "actual_change_pct": 5.302, "predicted_change_pct": 2.302, "congestion": 62.4, "signal": "LONG"}, {"date": "2026-04-29", "actual_change_pct": 8.971, "predicted_change_pct": 1.77, "congestion": 62.2, "signal": "LONG"}];
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function sc(s){ return {LOW:'#00e676',MODERATE:'#ffd740',HIGH:'#ff6d00',CRITICAL:'#f44336'}[s]||'#4a6a85'; }
+function si(s){ return {LOW:'🟢',MODERATE:'🟡',HIGH:'🟠',CRITICAL:'🔴'}[s]||'⚪'; }
+function f1(v){ return parseFloat(v).toFixed(1); }
+function f2(v){ return parseFloat(v).toFixed(2); }
+
+setInterval(function(){ document.getElementById('clk').textContent = new Date().toUTCString().replace(' GMT',' UTC'); }, 1000);
+
+// ── VIEW SWITCHING ────────────────────────────────────────────────────────────
+function goView(id, btn) {
+  document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('on'); });
+  document.querySelectorAll('.tnav').forEach(function(b){ b.classList.remove('on'); });
+  document.getElementById('v-'+id).classList.add('on');
+  btn.classList.add('on');
+  if (id === 'alpha') { setTimeout(function(){ renderPriceChart('crude_oil'); renderBtChart(); renderCorrTable(); }, 50); }
+  if (id === 'ml')    { setTimeout(function(){ renderMlCharts(); }, 50); }
+}
+
+// ── ALERT STATE ───────────────────────────────────────────────────────────────
+var alog = [], aCnt = 0;
+var aCfg = { thC:75, thH:50, thM:25, toast:true, muteMod:false };
+
+function evalAlerts(ports) {
+  ports.forEach(function(p) {
+    var lv = null;
+    if      (p.congestion_index >= aCfg.thC) lv = 'CRITICAL';
+    else if (p.congestion_index >= aCfg.thH) lv = 'HIGH';
+    else if (p.congestion_index >= aCfg.thM) lv = 'MODERATE';
+    if (!lv) return;
+    if (lv === 'MODERATE' && aCfg.muteMod) return;
+    fireAlert(p, lv);
+  });
+}
+
+function fireAlert(p, lv) {
+  var ts = new Date().toLocaleTimeString();
+  var msg = p.port + ' index hit ' + f1(p.congestion_index) + ' — ' + (p.waiting_vessels||0) + ' vessels waiting, ' + (p.tankers_waiting||0) + ' tankers. Commodity: ' + p.commodity + '.';
+  alog.unshift({ port:p.port, lv:lv, msg:msg, ts:ts });
+  aCnt++;
+  var bn = document.getElementById('bn');
+  bn.textContent = aCnt; bn.style.display = 'block';
+  renderAlertLog();
+  if (aCfg.toast) showToast(p, lv, msg, ts);
+}
+
+function showToast(p, lv, msg, ts) {
+  var area = document.getElementById('toasts');
+  var el = document.createElement('div');
+  el.className = 'toast ' + lv;
+  var inner = document.createElement('div');
+  inner.className = 't-icon';
+  inner.textContent = si(lv);
+  el.appendChild(inner);
+  var body = document.createElement('div');
+  body.className = 't-body';
+  body.innerHTML = '<div class="t-title">' + lv + ' — ' + p.port + '</div>' +
+    '<div class="t-msg">' + msg + '</div>' +
+    '<div class="t-ts">' + ts + '</div>';
+  el.appendChild(body);
+  var prog = document.createElement('div');
+  prog.className = 't-prog';
+  el.appendChild(prog);
+  var closeBtn = document.createElement('button');
+  closeBtn.className = 't-close';
+  closeBtn.textContent = '✕';
+  closeBtn.onclick = function() { el.classList.add('tout'); setTimeout(function(){ el.remove(); }, 250); };
+  el.appendChild(closeBtn);
+  area.appendChild(el);
+  setTimeout(function(){ el.classList.add('tout'); setTimeout(function(){ el.remove(); }, 250); }, 7000);
+}
+
+function clearAlerts() { alog=[]; aCnt=0; document.getElementById('bn').style.display='none'; renderAlertLog(); }
+
+function renderAlertLog() {
+  var el = document.getElementById('alertLog');
+  if (!alog.length) { el.innerHTML = '<div class="no-al">No alerts yet</div>'; return; }
+  el.innerHTML = alog.map(function(a) {
+    return '<div class="al-item"><div class="al-dot ' + a.lv + '"></div>' +
+      '<div><div class="al-t">' + a.port + ' <span class="sbadge s' + a.lv + '">' + a.lv + '</span></div>' +
+      '<div class="al-d">' + a.msg + '</div><div class="al-ts">' + a.ts + '</div></div></div>';
+  }).join('');
+}
+
+function openModal() { document.getElementById('amodal').classList.add('on'); }
+function closeModal() { document.getElementById('amodal').classList.remove('on'); }
+function saveAlertCfg() {
+  aCfg.thC = parseInt(document.getElementById('thC').value)||75;
+  aCfg.thH = parseInt(document.getElementById('thH').value)||50;
+  aCfg.thM = parseInt(document.getElementById('thM').value)||25;
+  aCfg.toast = document.getElementById('chT').checked;
+  aCfg.muteMod = document.getElementById('chMM').checked;
+  closeModal();
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function renderStats() {
+  var tot=0, wt=0, tnk=0, sum=0;
+  LIVE.forEach(function(p){ tot+=p.total_vessels; wt+=p.waiting_vessels; tnk+=p.tankers_waiting; sum+=p.congestion_index; });
+  var avg = sum/LIVE.length;
+  var mx = LIVE.reduce(function(a,p){ return p.congestion_index>a.congestion_index?p:a; });
+  var cards = [
+    {l:'Vessels Tracked', v:tot, s:'Across 6 ports', a:false},
+    {l:'Vessels Waiting', v:wt,  s:((wt/tot*100).toFixed(0))+'% of fleet', a:false},
+    {l:'Tankers Waiting', v:tnk, s:'Crude & product', a:false},
+    {l:'Avg Congestion Index', v:f1(avg), s:'Peak: '+mx.port+' ('+f1(mx.congestion_index)+')', a:true},
+  ];
+  document.getElementById('statsBar').innerHTML = cards.map(function(c){
+    return '<div class="sc"><div class="sl">'+c.l+'</div><div class="sv'+(c.a?' sac':'')+'">'+c.v+'</div><div class="ss">'+c.s+'</div></div>';
+  }).join('');
+}
+
+// ── PORT GRID ─────────────────────────────────────────────────────────────────
+var selP = null;
+function renderPortGrid() {
+  document.getElementById('portGrid').innerHTML = LIVE.map(function(p) {
+    var color = sc(p.signal);
+    return '<div class="pc'+(selP===p.port?' on':'')+'" data-s="'+p.signal+'" onclick="selectPort(\''+p.port+'\')">' +
+      '<div class="pn">'+p.port+'</div>' +
+      '<div class="pcom">'+p.commodity+'</div>' +
+      '<div class="pir"><div class="pin" style="color:'+color+'">'+f1(p.congestion_index)+'</div>' +
+      '<div style="font-size:8px;color:var(--mu);font-family:var(--mono)">INDEX</div>' +
+      '<div class="sbadge s'+p.signal+'">'+p.signal+'</div></div>' +
+      '<div class="cbar"><div class="cbf" style="width:'+p.congestion_index+'%;background:'+color+'"></div></div>' +
+      '<div class="pst"><div class="pss">&#x2693; <span>'+p.waiting_vessels+'</span></div>' +
+      '<div class="pss">&#x1F6A2; <span>'+p.total_vessels+'</span></div>' +
+      '<div class="pss">&#x26FD; <span>'+p.tankers_waiting+'</span></div></div></div>';
+  }).join('');
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────────
+var barC, donutC, trendC, priceC, btC, mlPredC, mlScatC;
+
+function renderBar() {
+  var ctx = document.getElementById('barChart').getContext('2d');
+  if (barC) barC.destroy();
+  barC = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: LIVE.map(function(p){ return p.port; }),
+      datasets: [{
+        data: LIVE.map(function(p){ return p.congestion_index; }),
+        backgroundColor: LIVE.map(function(p){ return sc(p.signal)+'88'; }),
+        borderColor:     LIVE.map(function(p){ return sc(p.signal); }),
+        borderWidth:1.5, borderRadius:5
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'#1a2d4518'},ticks:{color:'#4a6a85',font:{size:9}}},
+        y:{min:0,max:100,grid:{color:'#1a2d4530'},ticks:{color:'#4a6a85',font:{size:9}}}
+      }
+    }
+  });
+}
+
+function renderDonut(pname) {
+  var p = LIVE.find(function(x){ return x.port===pname; }) || LIVE[0];
+  var ctx = document.getElementById('donutChart').getContext('2d');
+  if (donutC) donutC.destroy();
+  var oth = Math.max(0, p.waiting_vessels - p.tankers_waiting - p.cargo_waiting);
+  donutC = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels:['Tankers','Cargo','Other','Moving'],
+      datasets:[{
+        data:[p.tankers_waiting, p.cargo_waiting, oth, p.total_vessels-p.waiting_vessels],
+        backgroundColor:['#00d4ff55','#7c4dff55','#ffd74055','#1a2d45'],
+        borderColor:    ['#00d4ff',  '#7c4dff',  '#ffd740',  '#4a6a85'],
+        borderWidth:1.5
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{position:'right',labels:{color:'#4a6a85',font:{size:9},padding:8,boxWidth:8}}}}
+  });
+  document.getElementById('donutTabs').innerHTML = LIVE.map(function(p2){
+    return '<button class="tb'+(p2.port===pname?' on':'')+'" onclick="renderDonut(\''+p2.port+'\')">'+p2.port.split(' ')[0]+'</button>';
+  }).join('');
+}
+
+function renderTrend(pname) {
+  var data = HIST[pname];
+  var ctx = document.getElementById('trendChart').getContext('2d');
+  if (trendC) trendC.destroy();
+  var color = sc(LIVE.find(function(p){ return p.port===pname; }).signal);
+  trendC = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: data.map(function(d){ return d.date.slice(5); }),
+      datasets:[{
+        data: data.map(function(d){ return d.congestion_index; }),
+        borderColor:color, backgroundColor:color+'12', fill:true,
+        tension:.4, pointRadius:0, borderWidth:2
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'#1a2d4518'},ticks:{color:'#4a6a85',font:{size:9},maxTicksLimit:8}},
+        y:{min:0,max:100,grid:{color:'#1a2d4530'},ticks:{color:'#4a6a85',font:{size:9}}}
+      }}
+  });
+  document.getElementById('trendTabs').innerHTML = LIVE.map(function(p2){
+    return '<button class="tb'+(p2.port===pname?' on':'')+'" onclick="renderTrend(\''+p2.port+'\')">'+p2.port.split(' ')[0]+'</button>';
+  }).join('');
+}
+
+function renderDetail(pname) {
+  var p = LIVE.find(function(x){ return x.port===pname; });
+  if (!p) return;
+  document.getElementById('detTitle').textContent = p.port + ' — Detail';
+  var rows = [
+    ['Congestion Index', f1(p.congestion_index)+' / 100'],
+    ['Signal', '<span class="sbadge s'+p.signal+'">'+p.signal+'</span>'],
+    ['Total Vessels', p.total_vessels],
+    ['Waiting', p.waiting_vessels+' ('+(p.waiting_vessels/p.total_vessels*100).toFixed(0)+'%)'],
+    ['Tankers', p.tankers_waiting],
+    ['Cargo', p.cargo_waiting],
+    ['Avg Speed', p.avg_speed_knots+' kn'],
+    ['Commodity', p.commodity],
+  ];
+  document.getElementById('detPanel').innerHTML = rows.map(function(r){
+    return '<div class="dr"><span class="dk">'+r[0]+'</span><span class="dv">'+r[1]+'</span></div>';
+  }).join('');
+}
+
+function renderVessels(pname) {
+  var p = LIVE.find(function(x){ return x.port===pname; });
+  if (!p || !p.vessels) return;
+  document.getElementById('vtTitle').textContent = 'Vessels — '+pname;
+  document.getElementById('vcnt').textContent = p.vessels.length+' vessels';
+  function sl(v) {
+    if (v.status===1) return '<span class="vdot" style="background:var(--mo)"></span>Anchored';
+    if (v.status===5) return '<span class="vdot" style="background:var(--mu)"></span>Moored';
+    if (v.speed<0.5)  return '<span class="vdot" style="background:var(--mo)"></span>Drifting';
+    return '<span class="vdot" style="background:var(--lo)"></span>Underway';
+  }
+  var sorted = p.vessels.slice().sort(function(a,b){ return (a.status===1||a.speed<.5?0:1)-(b.status===1||b.speed<.5?0:1); });
+  document.getElementById('vtBody').innerHTML = sorted.map(function(v){
+    return '<tr><td>'+v.name+'</td><td>'+(v.ship_type_name||'Other')+'</td><td>'+sl(v)+'</td><td>'+v.speed.toFixed(1)+'</td><td>'+v.flag+'</td></tr>';
+  }).join('');
+}
+
+function selectPort(name) {
+  selP = name;
+  renderPortGrid();
+  renderDetail(name);
+  renderVessels(name);
+  renderDonut(name);
+  renderTrend(name);
+}
+
+// ── ALPHA ─────────────────────────────────────────────────────────────────────
+function renderCmCards() {
+  var cm = ALPHA.commodities;
+  var items = [
+    {k:'crude_oil',icon:'🛢️'},{k:'iron_ore',icon:'⛏️'},
+    {k:'bdi',icon:'🚢'},{k:'nat_gas',icon:'🔥'}
+  ];
+  document.getElementById('cmCards').innerHTML = items.map(function(item){
+    var d = cm[item.k];
+    var up = d.change_pct >= 0;
+    return '<div class="cmcard">' +
+      '<div class="cmsym">'+item.icon+' '+d.symbol+'</div>' +
+      '<div class="cmprice">'+d.current.toLocaleString(undefined,{maximumFractionDigits:2})+'</div>' +
+      '<div class="cmchg '+(up?'cmup':'cmdn')+'">'+(up?'▲':'▼')+' '+Math.abs(d.change_pct)+'% today</div>' +
+      '<div style="font-size:8px;color:var(--mu);font-family:var(--mono);margin-top:2px">'+d.unit+'</div></div>';
+  }).join('');
+}
+
+function renderPriceChart(key) {
+  var cm = ALPHA.commodities;
+  var d = cm[key];
+  var ctx = document.getElementById('priceChart').getContext('2d');
+  if (priceC) priceC.destroy();
+  var colors = {crude_oil:'#ff6d00',iron_ore:'#7c4dff',bdi:'#00d4ff',nat_gas:'#ffd740'};
+  var color = colors[key]||'#00d4ff';
+  priceC = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: cm.dates.map(function(d){ return d.slice(5); }),
+      datasets:[{data:d.prices,borderColor:color,backgroundColor:color+'12',fill:true,tension:.4,pointRadius:0,borderWidth:2}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'#1a2d4518'},ticks:{color:'#4a6a85',font:{size:9},maxTicksLimit:8}},
+        y:{grid:{color:'#1a2d4530'},ticks:{color:'#4a6a85',font:{size:9}}}
+      }}
+  });
+  var labels = {crude_oil:'Crude',iron_ore:'Iron Ore',bdi:'BDI',nat_gas:'Nat Gas'};
+  document.getElementById('priceTabs').innerHTML = Object.keys(labels).map(function(k){
+    return '<button class="tb'+(k===key?' on':'')+'" onclick="renderPriceChart(\''+k+'\')">'+labels[k]+'</button>';
+  }).join('');
+}
+
+function renderCorrTable() {
+  var corr = ALPHA.correlations;
+  var rows = Object.keys(corr).map(function(port) {
+    var c = corr[port];
+    var r1=c.crude_lag7, r2=c.bdi_lag7;
+    var bar = function(r,col){ return '<span style="display:inline-block;height:8px;width:'+(Math.abs(r)*60)+'px;background:'+col+';opacity:.7;border-radius:2px;vertical-align:middle;margin-left:4px"></span>'; };
+    return '<tr><td>'+port+'</td>' +
+      '<td>'+r1.toFixed(3)+bar(r1,r1>0?'#00e676':'#f44336')+'</td>' +
+      '<td>'+r2.toFixed(3)+bar(r2,r2>0?'#00e676':'#f44336')+'</td></tr>';
+  }).join('');
+  document.getElementById('corrTable').innerHTML =
+    '<thead><tr><th>Port</th><th>vs Crude (r)</th><th>vs BDI (r)</th></tr></thead><tbody>'+rows+'</tbody>';
+}
+
+function renderBtStats() {
+  var bt = ALPHA.backtest;
+  var finalPnl = bt[bt.length-1].cum_pnl;
+  var dailyPnls = bt.map(function(d){ return d.daily_pnl; });
+  var wins = dailyPnls.filter(function(p){ return p>0; }).length;
+  var avgDaily = dailyPnls.reduce(function(a,b){ return a+b; },0)/dailyPnls.length;
+  var maxDD = 0;
+  bt.forEach(function(d,i){
+    var peak = Math.max.apply(null, bt.slice(0,i+1).map(function(x){ return x.cum_pnl; }));
+    maxDD = Math.min(maxDD, d.cum_pnl - peak);
+  });
+  var cards = [
+    {l:'Total P&L', v:'$'+finalPnl.toFixed(2), s:'30-day simulated', col:finalPnl>0?'var(--lo)':'var(--cr)'},
+    {l:'Win Rate',  v:((wins/dailyPnls.length)*100).toFixed(0)+'%', s:wins+'/'+dailyPnls.length+' days', col:'var(--tx)'},
+    {l:'Avg Daily', v:'$'+avgDaily.toFixed(2), s:'per day', col:'var(--tx)'},
+    {l:'Max Drawdown', v:'$'+maxDD.toFixed(2), s:'largest dip', col:'var(--cr)'},
+  ];
+  document.getElementById('btStats').innerHTML = cards.map(function(c){
+    return '<div class="bt-stat"><div class="bt-lbl">'+c.l+'</div><div class="bt-val" style="color:'+c.col+'">'+c.v+'</div><div class="bt-lbl" style="margin-top:2px">'+c.s+'</div></div>';
+  }).join('');
+}
+
+function renderBtChart() {
+  var bt = ALPHA.backtest;
+  var ctx = document.getElementById('btChart').getContext('2d');
+  if (btC) btC.destroy();
+  btC = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: bt.map(function(d){ return d.date.slice(5); }),
+      datasets:[
+        {label:'Cum P&L', data:bt.map(function(d){ return d.cum_pnl; }),
+          borderColor:'#00e676',backgroundColor:'rgba(0,230,118,.08)',fill:true,tension:.3,pointRadius:0,borderWidth:2},
+        {label:'Congestion/5', data:bt.map(function(d){ return d.congestion/5; }),
+          borderColor:'#00d4ff66',tension:.3,pointRadius:0,borderWidth:1,borderDash:[4,4]},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#4a6a85',font:{size:9},boxWidth:8}}},
+      scales:{
+        x:{grid:{color:'#1a2d4518'},ticks:{color:'#4a6a85',font:{size:9},maxTicksLimit:10}},
+        y:{grid:{color:'#1a2d4530'},ticks:{color:'#4a6a85',font:{size:9}}}
+      }}
+  });
+}
+
+// ── ML MODEL ──────────────────────────────────────────────────────────────────
+function renderMlCharts() {
+  renderMlMetrics();
+  renderMlPredChart();
+  renderMlScatter();
+  renderMlSigTable();
+}
+
+function renderMlMetrics() {
+  var ml = ALPHA.ml;
+  var cards = [
+    {l:'R&#xB2; Score',          v:ml.r2,                  col:'var(--ac)',  s:'variance explained'},
+    {l:'Direction Accuracy', v:ml.direction_accuracy+'%', col:'var(--lo)',  s:'up/down correct'},
+    {l:'MAE',                v:ml.mae+'%',               col:'var(--tx)',  s:'mean abs error'},
+    {l:'Training Samples',   v:ml.n_samples,             col:'var(--tx)',  s:'daily observations'},
+  ];
+  document.getElementById('mlMetrics').innerHTML = cards.map(function(c){
+    return '<div class="bt-stat"><div class="bt-lbl">'+c.l+'</div><div class="bt-val" style="color:'+c.col+'">'+c.v+'</div><div class="bt-lbl" style="margin-top:2px">'+c.s+'</div></div>';
+  }).join('');
+}
+
+function renderMlPredChart() {
+  var ctx = document.getElementById('mlPredChart').getContext('2d');
+  if (mlPredC) mlPredC.destroy();
+  mlPredC = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: ML_PREDS.map(function(d){ return d.date.slice(5); }),
+      datasets:[
+        {label:'Actual', data:ML_PREDS.map(function(d){ return d.actual_change_pct; }),
+          borderColor:'#00e676', fill:false, tension:.3, pointRadius:2, borderWidth:2},
+        {label:'Predicted', data:ML_PREDS.map(function(d){ return d.predicted_change_pct; }),
+          borderColor:'#00d4ff', fill:false, tension:.3, pointRadius:2, borderWidth:2, borderDash:[5,3]},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#4a6a85',font:{size:9},boxWidth:8}}},
+      scales:{
+        x:{grid:{color:'#1a2d4518'},ticks:{color:'#4a6a85',font:{size:9},maxTicksLimit:8}},
+        y:{grid:{color:'#1a2d4530'},ticks:{color:'#4a6a85',font:{size:9}},
+           title:{display:true,text:'% Change',color:'#4a6a85',font:{size:9}}}
+      }}
+  });
+}
+
+function renderMlScatter() {
+  var ctx = document.getElementById('mlScatter').getContext('2d');
+  if (mlScatC) mlScatC.destroy();
+  var correct=[], wrong=[];
+  ML_PREDS.forEach(function(d){
+    var pt = {x:d.congestion, y:d.actual_change_pct};
+    var ok = (d.actual_change_pct>0) === (d.predicted_change_pct>0);
+    if (ok) correct.push(pt); else wrong.push(pt);
+  });
+  mlScatC = new Chart(ctx, {
+    type:'scatter',
+    data:{datasets:[
+      {label:'Correct direction', data:correct, backgroundColor:'rgba(0,230,118,.6)', pointRadius:5},
+      {label:'Wrong direction',   data:wrong,   backgroundColor:'rgba(244,67,54,.6)', pointRadius:5},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#4a6a85',font:{size:9},boxWidth:8}}},
+      scales:{
+        x:{grid:{color:'#1a2d4518'},ticks:{color:'#4a6a85',font:{size:9}},
+           title:{display:true,text:'Congestion Index',color:'#4a6a85',font:{size:9}}},
+        y:{grid:{color:'#1a2d4530'},ticks:{color:'#4a6a85',font:{size:9}},
+           title:{display:true,text:'Actual 7d Price Delta %',color:'#4a6a85',font:{size:9}}}
+      }}
+  });
+}
+
+function renderMlSigTable() {
+  var rows = ML_PREDS.slice().reverse().map(function(d) {
+    var correct = (d.actual_change_pct>0) === (d.predicted_change_pct>0);
+    var sigColors = {LONG:'var(--lo)',SHORT:'var(--cr)',FLAT:'var(--mu)'};
+    var sigColor = sigColors[d.signal] || 'var(--mu)';
+    var actColor = d.actual_change_pct >= 0 ? 'var(--lo)' : 'var(--cr)';
+    var predColor = d.predicted_change_pct >= 0 ? 'var(--lo)' : 'var(--cr)';
+    var predStr = (d.predicted_change_pct>0?'+':'')+d.predicted_change_pct.toFixed(2)+'%';
+    var actStr  = (d.actual_change_pct>0?'+':'')+d.actual_change_pct.toFixed(2)+'%';
+    var tick = correct
+      ? '<span style="color:var(--lo);font-size:9px;margin-left:3px">&#x2713;</span>'
+      : '<span style="color:var(--cr);font-size:9px;margin-left:3px">&#x2717;</span>';
+    return '<tr>' +
+      '<td>'+d.date.slice(5)+'</td>' +
+      '<td>'+d.congestion.toFixed(1)+'</td>' +
+      '<td style="color:'+predColor+'">'+predStr+'</td>' +
+      '<td style="color:'+actColor+'">'+actStr+'</td>' +
+      '<td><span class="sbadge" style="background:'+sigColor+'22;color:'+sigColor+'">'+d.signal+'</span>'+tick+'</td>' +
+      '</tr>';
+  }).join('');
+  document.getElementById('mlSigBody').innerHTML = rows;
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+renderStats();
+renderPortGrid();
+renderBar();
+renderDonut(LIVE[0].port);
+renderTrend(LIVE[0].port);
+renderCmCards();
+selectPort(LIVE[0].port);
+setTimeout(function(){ renderBtStats(); renderCorrTable(); }, 100);
+setTimeout(function(){ evalAlerts(LIVE); }, 1200);
+setTimeout(function(){
+  var demo = JSON.parse(JSON.stringify(LIVE[2]));
+  demo.congestion_index = 77.5; demo.signal = 'CRITICAL';
+  demo.waiting_vessels = 55; demo.tankers_waiting = 29;
+  fireAlert(demo, 'CRITICAL');
+}, 10000);
+</script>
+</body>
+</html>

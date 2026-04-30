@@ -1,0 +1,734 @@
+{
+  "Houston": [
+    {
+      "date": "2026-03-31",
+      "congestion_index": 72.0
+    },
+    {
+      "date": "2026-04-01",
+      "congestion_index": 63.8
+    },
+    {
+      "date": "2026-04-02",
+      "congestion_index": 64.4
+    },
+    {
+      "date": "2026-04-03",
+      "congestion_index": 66.5
+    },
+    {
+      "date": "2026-04-04",
+      "congestion_index": 57.2
+    },
+    {
+      "date": "2026-04-05",
+      "congestion_index": 48.8
+    },
+    {
+      "date": "2026-04-06",
+      "congestion_index": 65.9
+    },
+    {
+      "date": "2026-04-07",
+      "congestion_index": 68.8
+    },
+    {
+      "date": "2026-04-08",
+      "congestion_index": 80.2
+    },
+    {
+      "date": "2026-04-09",
+      "congestion_index": 64.8
+    },
+    {
+      "date": "2026-04-10",
+      "congestion_index": 58.2
+    },
+    {
+      "date": "2026-04-11",
+      "congestion_index": 67.5
+    },
+    {
+      "date": "2026-04-12",
+      "congestion_index": 37.8
+    },
+    {
+      "date": "2026-04-13",
+      "congestion_index": 64.1
+    },
+    {
+      "date": "2026-04-14",
+      "congestion_index": 58.9
+    },
+    {
+      "date": "2026-04-15",
+      "congestion_index": 62.6
+    },
+    {
+      "date": "2026-04-16",
+      "congestion_index": 62.0
+    },
+    {
+      "date": "2026-04-17",
+      "congestion_index": 64.6
+    },
+    {
+      "date": "2026-04-18",
+      "congestion_index": 45.8
+    },
+    {
+      "date": "2026-04-19",
+      "congestion_index": 52.9
+    },
+    {
+      "date": "2026-04-20",
+      "congestion_index": 69.1
+    },
+    {
+      "date": "2026-04-21",
+      "congestion_index": 68.5
+    },
+    {
+      "date": "2026-04-22",
+      "congestion_index": 57.5
+    },
+    {
+      "date": "2026-04-23",
+      "congestion_index": 56.1
+    },
+    {
+      "date": "2026-04-24",
+      "congestion_index": 57.6
+    },
+    {
+      "date": "2026-04-25",
+      "congestion_index": 50.6
+    },
+    {
+      "date": "2026-04-26",
+      "congestion_index": 59.5
+    },
+    {
+      "date": "2026-04-27",
+      "congestion_index": 71.1
+    },
+    {
+      "date": "2026-04-28",
+      "congestion_index": 65.2
+    },
+    {
+      "date": "2026-04-29",
+      "congestion_index": 64.7
+    }
+  ],
+  "Rotterdam": [
+    {
+      "date": "2026-03-31",
+      "congestion_index": 42.8
+    },
+    {
+      "date": "2026-04-01",
+      "congestion_index": 66.1
+    },
+    {
+      "date": "2026-04-02",
+      "congestion_index": 48.6
+    },
+    {
+      "date": "2026-04-03",
+      "congestion_index": 61.6
+    },
+    {
+      "date": "2026-04-04",
+      "congestion_index": 43.6
+    },
+    {
+      "date": "2026-04-05",
+      "congestion_index": 47.4
+    },
+    {
+      "date": "2026-04-06",
+      "congestion_index": 50.7
+    },
+    {
+      "date": "2026-04-07",
+      "congestion_index": 56.5
+    },
+    {
+      "date": "2026-04-08",
+      "congestion_index": 50.0
+    },
+    {
+      "date": "2026-04-09",
+      "congestion_index": 58.8
+    },
+    {
+      "date": "2026-04-10",
+      "congestion_index": 53.2
+    },
+    {
+      "date": "2026-04-11",
+      "congestion_index": 35.3
+    },
+    {
+      "date": "2026-04-12",
+      "congestion_index": 45.3
+    },
+    {
+      "date": "2026-04-13",
+      "congestion_index": 65.2
+    },
+    {
+      "date": "2026-04-14",
+      "congestion_index": 55.7
+    },
+    {
+      "date": "2026-04-15",
+      "congestion_index": 52.7
+    },
+    {
+      "date": "2026-04-16",
+      "congestion_index": 67.7
+    },
+    {
+      "date": "2026-04-17",
+      "congestion_index": 57.5
+    },
+    {
+      "date": "2026-04-18",
+      "congestion_index": 57.4
+    },
+    {
+      "date": "2026-04-19",
+      "congestion_index": 44.4
+    },
+    {
+      "date": "2026-04-20",
+      "congestion_index": 72.3
+    },
+    {
+      "date": "2026-04-21",
+      "congestion_index": 64.6
+    },
+    {
+      "date": "2026-04-22",
+      "congestion_index": 54.4
+    },
+    {
+      "date": "2026-04-23",
+      "congestion_index": 63.6
+    },
+    {
+      "date": "2026-04-24",
+      "congestion_index": 44.5
+    },
+    {
+      "date": "2026-04-25",
+      "congestion_index": 42.7
+    },
+    {
+      "date": "2026-04-26",
+      "congestion_index": 48.1
+    },
+    {
+      "date": "2026-04-27",
+      "congestion_index": 45.8
+    },
+    {
+      "date": "2026-04-28",
+      "congestion_index": 50.6
+    },
+    {
+      "date": "2026-04-29",
+      "congestion_index": 57.6
+    }
+  ],
+  "Singapore": [
+    {
+      "date": "2026-03-31",
+      "congestion_index": 62.6
+    },
+    {
+      "date": "2026-04-01",
+      "congestion_index": 61.7
+    },
+    {
+      "date": "2026-04-02",
+      "congestion_index": 71.0
+    },
+    {
+      "date": "2026-04-03",
+      "congestion_index": 70.7
+    },
+    {
+      "date": "2026-04-04",
+      "congestion_index": 56.6
+    },
+    {
+      "date": "2026-04-05",
+      "congestion_index": 62.9
+    },
+    {
+      "date": "2026-04-06",
+      "congestion_index": 79.5
+    },
+    {
+      "date": "2026-04-07",
+      "congestion_index": 66.1
+    },
+    {
+      "date": "2026-04-08",
+      "congestion_index": 67.3
+    },
+    {
+      "date": "2026-04-09",
+      "congestion_index": 64.2
+    },
+    {
+      "date": "2026-04-10",
+      "congestion_index": 67.2
+    },
+    {
+      "date": "2026-04-11",
+      "congestion_index": 63.5
+    },
+    {
+      "date": "2026-04-12",
+      "congestion_index": 58.1
+    },
+    {
+      "date": "2026-04-13",
+      "congestion_index": 64.1
+    },
+    {
+      "date": "2026-04-14",
+      "congestion_index": 74.5
+    },
+    {
+      "date": "2026-04-15",
+      "congestion_index": 71.7
+    },
+    {
+      "date": "2026-04-16",
+      "congestion_index": 81.4
+    },
+    {
+      "date": "2026-04-17",
+      "congestion_index": 65.2
+    },
+    {
+      "date": "2026-04-18",
+      "congestion_index": 69.4
+    },
+    {
+      "date": "2026-04-19",
+      "congestion_index": 68.7
+    },
+    {
+      "date": "2026-04-20",
+      "congestion_index": 59.6
+    },
+    {
+      "date": "2026-04-21",
+      "congestion_index": 68.9
+    },
+    {
+      "date": "2026-04-22",
+      "congestion_index": 79.4
+    },
+    {
+      "date": "2026-04-23",
+      "congestion_index": 84.9
+    },
+    {
+      "date": "2026-04-24",
+      "congestion_index": 72.4
+    },
+    {
+      "date": "2026-04-25",
+      "congestion_index": 70.8
+    },
+    {
+      "date": "2026-04-26",
+      "congestion_index": 42.9
+    },
+    {
+      "date": "2026-04-27",
+      "congestion_index": 65.2
+    },
+    {
+      "date": "2026-04-28",
+      "congestion_index": 82.8
+    },
+    {
+      "date": "2026-04-29",
+      "congestion_index": 71.2
+    }
+  ],
+  "Qingdao": [
+    {
+      "date": "2026-03-31",
+      "congestion_index": 50.0
+    },
+    {
+      "date": "2026-04-01",
+      "congestion_index": 32.8
+    },
+    {
+      "date": "2026-04-02",
+      "congestion_index": 57.4
+    },
+    {
+      "date": "2026-04-03",
+      "congestion_index": 54.6
+    },
+    {
+      "date": "2026-04-04",
+      "congestion_index": 27.9
+    },
+    {
+      "date": "2026-04-05",
+      "congestion_index": 29.8
+    },
+    {
+      "date": "2026-04-06",
+      "congestion_index": 41.1
+    },
+    {
+      "date": "2026-04-07",
+      "congestion_index": 42.7
+    },
+    {
+      "date": "2026-04-08",
+      "congestion_index": 41.3
+    },
+    {
+      "date": "2026-04-09",
+      "congestion_index": 49.8
+    },
+    {
+      "date": "2026-04-10",
+      "congestion_index": 32.7
+    },
+    {
+      "date": "2026-04-11",
+      "congestion_index": 38.6
+    },
+    {
+      "date": "2026-04-12",
+      "congestion_index": 44.5
+    },
+    {
+      "date": "2026-04-13",
+      "congestion_index": 45.6
+    },
+    {
+      "date": "2026-04-14",
+      "congestion_index": 43.5
+    },
+    {
+      "date": "2026-04-15",
+      "congestion_index": 58.4
+    },
+    {
+      "date": "2026-04-16",
+      "congestion_index": 51.9
+    },
+    {
+      "date": "2026-04-17",
+      "congestion_index": 61.6
+    },
+    {
+      "date": "2026-04-18",
+      "congestion_index": 22.9
+    },
+    {
+      "date": "2026-04-19",
+      "congestion_index": 24.9
+    },
+    {
+      "date": "2026-04-20",
+      "congestion_index": 43.3
+    },
+    {
+      "date": "2026-04-21",
+      "congestion_index": 59.9
+    },
+    {
+      "date": "2026-04-22",
+      "congestion_index": 52.4
+    },
+    {
+      "date": "2026-04-23",
+      "congestion_index": 48.4
+    },
+    {
+      "date": "2026-04-24",
+      "congestion_index": 47.9
+    },
+    {
+      "date": "2026-04-25",
+      "congestion_index": 49.3
+    },
+    {
+      "date": "2026-04-26",
+      "congestion_index": 37.4
+    },
+    {
+      "date": "2026-04-27",
+      "congestion_index": 52.7
+    },
+    {
+      "date": "2026-04-28",
+      "congestion_index": 39.2
+    },
+    {
+      "date": "2026-04-29",
+      "congestion_index": 46.3
+    }
+  ],
+  "Fujairah": [
+    {
+      "date": "2026-03-31",
+      "congestion_index": 51.5
+    },
+    {
+      "date": "2026-04-01",
+      "congestion_index": 61.9
+    },
+    {
+      "date": "2026-04-02",
+      "congestion_index": 72.6
+    },
+    {
+      "date": "2026-04-03",
+      "congestion_index": 49.0
+    },
+    {
+      "date": "2026-04-04",
+      "congestion_index": 57.2
+    },
+    {
+      "date": "2026-04-05",
+      "congestion_index": 39.6
+    },
+    {
+      "date": "2026-04-06",
+      "congestion_index": 59.2
+    },
+    {
+      "date": "2026-04-07",
+      "congestion_index": 74.3
+    },
+    {
+      "date": "2026-04-08",
+      "congestion_index": 53.5
+    },
+    {
+      "date": "2026-04-09",
+      "congestion_index": 56.3
+    },
+    {
+      "date": "2026-04-10",
+      "congestion_index": 58.6
+    },
+    {
+      "date": "2026-04-11",
+      "congestion_index": 50.0
+    },
+    {
+      "date": "2026-04-12",
+      "congestion_index": 50.4
+    },
+    {
+      "date": "2026-04-13",
+      "congestion_index": 61.4
+    },
+    {
+      "date": "2026-04-14",
+      "congestion_index": 56.6
+    },
+    {
+      "date": "2026-04-15",
+      "congestion_index": 64.8
+    },
+    {
+      "date": "2026-04-16",
+      "congestion_index": 59.3
+    },
+    {
+      "date": "2026-04-17",
+      "congestion_index": 61.2
+    },
+    {
+      "date": "2026-04-18",
+      "congestion_index": 40.4
+    },
+    {
+      "date": "2026-04-19",
+      "congestion_index": 60.7
+    },
+    {
+      "date": "2026-04-20",
+      "congestion_index": 55.7
+    },
+    {
+      "date": "2026-04-21",
+      "congestion_index": 56.0
+    },
+    {
+      "date": "2026-04-22",
+      "congestion_index": 45.9
+    },
+    {
+      "date": "2026-04-23",
+      "congestion_index": 61.5
+    },
+    {
+      "date": "2026-04-24",
+      "congestion_index": 64.7
+    },
+    {
+      "date": "2026-04-25",
+      "congestion_index": 46.9
+    },
+    {
+      "date": "2026-04-26",
+      "congestion_index": 39.2
+    },
+    {
+      "date": "2026-04-27",
+      "congestion_index": 66.3
+    },
+    {
+      "date": "2026-04-28",
+      "congestion_index": 62.1
+    },
+    {
+      "date": "2026-04-29",
+      "congestion_index": 66.4
+    }
+  ],
+  "Los Angeles": [
+    {
+      "date": "2026-03-31",
+      "congestion_index": 42.9
+    },
+    {
+      "date": "2026-04-01",
+      "congestion_index": 48.8
+    },
+    {
+      "date": "2026-04-02",
+      "congestion_index": 48.3
+    },
+    {
+      "date": "2026-04-03",
+      "congestion_index": 39.1
+    },
+    {
+      "date": "2026-04-04",
+      "congestion_index": 30.6
+    },
+    {
+      "date": "2026-04-05",
+      "congestion_index": 31.7
+    },
+    {
+      "date": "2026-04-06",
+      "congestion_index": 51.9
+    },
+    {
+      "date": "2026-04-07",
+      "congestion_index": 38.7
+    },
+    {
+      "date": "2026-04-08",
+      "congestion_index": 54.6
+    },
+    {
+      "date": "2026-04-09",
+      "congestion_index": 45.7
+    },
+    {
+      "date": "2026-04-10",
+      "congestion_index": 42.2
+    },
+    {
+      "date": "2026-04-11",
+      "congestion_index": 46.5
+    },
+    {
+      "date": "2026-04-12",
+      "congestion_index": 38.1
+    },
+    {
+      "date": "2026-04-13",
+      "congestion_index": 36.4
+    },
+    {
+      "date": "2026-04-14",
+      "congestion_index": 57.2
+    },
+    {
+      "date": "2026-04-15",
+      "congestion_index": 37.3
+    },
+    {
+      "date": "2026-04-16",
+      "congestion_index": 53.8
+    },
+    {
+      "date": "2026-04-17",
+      "congestion_index": 57.0
+    },
+    {
+      "date": "2026-04-18",
+      "congestion_index": 33.2
+    },
+    {
+      "date": "2026-04-19",
+      "congestion_index": 33.1
+    },
+    {
+      "date": "2026-04-20",
+      "congestion_index": 33.3
+    },
+    {
+      "date": "2026-04-21",
+      "congestion_index": 41.5
+    },
+    {
+      "date": "2026-04-22",
+      "congestion_index": 52.4
+    },
+    {
+      "date": "2026-04-23",
+      "congestion_index": 31.6
+    },
+    {
+      "date": "2026-04-24",
+      "congestion_index": 42.6
+    },
+    {
+      "date": "2026-04-25",
+      "congestion_index": 29.4
+    },
+    {
+      "date": "2026-04-26",
+      "congestion_index": 25.5
+    },
+    {
+      "date": "2026-04-27",
+      "congestion_index": 43.4
+    },
+    {
+      "date": "2026-04-28",
+      "congestion_index": 48.7
+    },
+    {
+      "date": "2026-04-29",
+      "congestion_index": 31.9
+    }
+  ]
+}
